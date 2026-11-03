@@ -1,21 +1,25 @@
 # Carousel Studio
 
-Carousel Studio is a browser-based app for browsing carousel templates and editing drafts. Drafts autosave to the visitor's own device (browser storage), so no server or account is needed.
+Carousel Studio is a browser-based carousel design tool. The React template library is the main entry point; the existing full-featured editor remains available at `/editor.html` while its editing workflows are migrated. Drafts are stored on the visitor's device, so no account or backend is needed.
 
 ## Technology
 
-- A single self-contained HTML file (`public/index.html`) with inline CSS and JavaScript
-- Google Fonts (Caveat, DM Sans, Playfair Display)
-- Hosted on Netlify as a static site, no build step
+- React 19 and Vite
+- Lossless individual PNG exports for selected slides, generated in the browser
+- Reusable UI in `src/components/`, template data and filters in `src/lib/templates.js`
+- Responsive, system-aware interface with reduced-motion support
 
 ## Running locally
 
-Open `public/index.html` in a browser, or serve the folder:
+Install the locked dependencies and start the development server:
 
 ```bash
-npx serve public
+npm ci
+npm run dev
 ```
+
+Create and preview a production build with `npm run build` and `npm run preview`.
 
 ## Deploying
 
-Netlify publishes the `public` directory as-is (see `netlify.toml`). Push to `main` to deploy.
+Netlify runs the Vite production build and publishes `dist/` (see `netlify.toml`).
