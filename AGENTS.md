@@ -1,17 +1,19 @@
 # AGENTS.md
 
 ## Architecture
-React 19 single-page app built with Vite. The app entry is `index.html`; React code lives in `src/`, with reusable components in `src/components/` and catalog logic in `src/lib/templates.js`. Vite outputs to `dist/`, which Netlify publishes.
+React + Vite single-page app with one HTML entry (`index.html`). `npm run build` outputs `dist/`, which Netlify publishes (`netlify.toml` adds the SPA fallback and redirects old `/editor.html` links to `/edit`).
+
+- `/` → Studio home (`src/App.jsx`): create panel, drafts, and the template/layout library.
+- `/edit?template=id | ?new=1&ar=4/5&n=3 | ?open=projectId` → editor, lazy-loaded (`src/editor/Editor.jsx`).
 
 ## Key files
-- `src/App.jsx`: template library, search and filters
-- `src/components/`: reusable template card, slide preview, and preview dialog
-- `src/lib/templates.js`: template catalog and filter metadata
-- `editor.html`: existing full-featured editor and lossless individual PNG export flow, built as a second Vite page
-- `netlify.toml`: build command, publish directory, and basic security headers
+- `src/main.jsx`: root router (`src/lib/router.js`, a tiny History-API store with `navigate`/`goBack`/`linkClick`).
+- `src/editor/engine.js`: the imperative editor engine. `mountEditor(el, { search, onExit, onMissing })` returns a dispose function. Register global listeners with `listen()` so they are removed on unmount.
+- `src/editor/markup.js` and `src/editor/editor.css`: the editor chrome and its styles.
+- `src/catalog/`: templates, layouts and gradients, shared by the home previews and the editor.
+- `src/lib/projects.js`: reads drafts from IndexedDB (`carousel-studio`; stores `p` and `b`). The schema must match the engine.
 
 ## Conventions and notes
+- CSS is route-scoped. Home uses `src/styles.css` and the editor uses `editor.css`; both are imported with `?inline` and injected via `useStyleSheet`. Don't import either globally, because they share selectors.
 - Drafts persist in the browser on the visitor's device. If cross-device sync is ever needed, use Netlify Database (and Netlify Identity for accounts) rather than adding a third-party backend.
-- Keep dependencies minimal and prefer native browser APIs.
-- Export selected slides as individual lossless PNGs; browsers may require permission for multiple downloads.
-- Run `npm run build` to validate production changes.
+- Keep dependencies minimal.

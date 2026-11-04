@@ -1,15 +1,15 @@
-// Lucide icons used by the standalone editor (editor.html).
-// The Vite plugin in vite.config.js inlines only these icons at build time,
-// so the editor ships no icon runtime and makes no extra requests.
+// Lucide icons used by the editor engine (src/editor/engine.js).
+// Only these icons are bundled, as raw SVG markup, so the editor ships no icon runtime.
 import {
+  AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, Sparkles, Sun, Droplet, Move, WandSparkles, Focus,
   AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignStartHorizontal,
   AlignStartVertical, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart, ArrowDown,
   ArrowUp, Blend, Bookmark, BringToFront, Check, ChevronLeft, ChevronRight, Circle, Columns2, Copy, CopyPlus, Crop,
-  Download, Ellipsis, Eraser, Film, FlipHorizontal2, FlipVertical2, GalleryHorizontal, GripHorizontal, Group, Heart,
-  Image, ImageOff, ImagePlus, Images, Layers, LayoutDashboard, Maximize, Maximize2, MessageCircle, Minimize2, Minus,
+  Brush, Download, Share, Info, FileText, Ellipsis, Eraser, Film, FlipHorizontal2, FlipVertical2, GalleryHorizontal, GripHorizontal, Group, Heart,
+  Image, ImageOff, ImagePlus, Images, Import, Layers, LayoutDashboard, Maximize, Maximize2, MessageCircle, Minimize2, Minus,
   Moon, PanelRight, PictureInPicture2, Play, Plus, Redo2, Replace, RotateCcw, RotateCw, Rows2, Search, Send, SendToBack, Shapes,
   SlidersHorizontal, Square, SquareDashed, SquareDashedMousePointer, SquarePlus, TextAlignCenter, TextAlignEnd,
-  TextAlignStart, Trash2, Type, Undo2, Ungroup, Upload, X,
+  TextAlignStart, Trash2, Scissors, Lasso, Shuffle, PenTool, Pen, PencilLine, Highlighter, Paintbrush, Feather, Zap, Sticker, Compass, Pencil, RotateCcwSquare, Type, Undo2, Ungroup, Upload, X,
 } from 'lucide'
 
 export const EDITOR_ICONS = {
@@ -19,7 +19,7 @@ export const EDITOR_ICONS = {
   back: ChevronLeft, mvl: ChevronLeft, mvr: ChevronRight,
   // tool bar
   text: Type, photo: ImagePlus, shape: Shapes, line: Minus, lay: LayoutDashboard, slides: GalleryHorizontal,
-  lyr: Layers, multi: SquareDashedMousePointer,
+  lyr: Layers, multi: SquareDashedMousePointer, sticker: Sticker, compass: Compass, edit: Pencil, restore: RotateCcwSquare,
   // object actions
   dup: Copy, del: Trash2, front: BringToFront, bottom: SendToBack, fwd: ArrowUp, bwd: ArrowDown,
   group: Group, ungroup: Ungroup, reset: RotateCcw, all: Images,
@@ -29,10 +29,15 @@ export const EDITOR_ICONS = {
   tv_t: AlignVerticalJustifyStart, tv_c: AlignVerticalJustifyCenter, tv_e: AlignVerticalJustifyEnd,
   // media
   replace: Replace, crop: Crop, fit: Minimize2, fill: Maximize2, flx: FlipHorizontal2, fly: FlipVertical2,
-  sph: Columns2, spv: Rows2, circ: Circle, unset: ImageOff, brush: Eraser, edge: Maximize,
+  sph: Columns2, spv: Rows2, circ: Circle, unset: ImageOff, brush: Eraser, unerase: Brush, share: Share, info: Info, pdf: FileText, edge: Maximize,
   frame: SquareDashed, slide: Square, image: Image, video: Film, adjust: SlidersHorizontal, blend: Blend,
+  dist_h: AlignHorizontalDistributeCenter, dist_v: AlignVerticalDistributeCenter, sparkles: Sparkles, sun: Sun,
+  cut: Scissors, lasso: Lasso, shuffle: Shuffle, pen: PenTool,
+  // drawing brushes
+  draw: PencilLine, b_pen: Pen, b_pc: Pencil, b_mk: Paintbrush, b_hl: Highlighter, b_neon: Zap, b_cal: Feather, b_er: Eraser,
+  drop: Droplet, move: Move, wand: WandSparkles, focus: Focus,
   // slides
-  addsl: SquarePlus, dupsl: CopyPlus, delsl: Trash2,
+  addsl: SquarePlus, dupsl: CopyPlus, delsl: Trash2, impsl: Import,
   // social preview
   heart: Heart, comment: MessageCircle, send: Send, save: Bookmark, more: Ellipsis,
 }

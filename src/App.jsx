@@ -1,264 +1,185 @@
-import { useEffect, useMemo, useState } from 'react'
-import TemplateCard from './components/TemplateCard.jsx'
+import { useCallback, useEffect, useState } from 'react'
+import Navigation, { VIEWS } from './components/Navigation.jsx'
+import CreatePanel from './components/CreatePanel.jsx'
+import RecentProjects from './components/RecentProjects.jsx'
+import Library from './components/Library.jsx'
 import TemplateDialog from './components/TemplateDialog.jsx'
-import {
-  CATEGORIES,
-  CATEGORY_ORDER,
-  matchesPhotos,
-  PHOTO_FILTERS,
-  photoFilterLabel,
-  RATIO_FILTERS,
-  TEMPLATES,
-} from './lib/templates.js'
+import Icon from './components/Icon.jsx'
+import { LIBRARY } from './catalog/index.js'
+import { templateUrl } from './lib/links.js'
+import { navigate as go } from './lib/router.js'
+import { useStyleSheet } from './lib/useStyleSheet.js'
+import css from './styles.css?inline'
+import { useProjects } from './lib/projects.js'
+
+const THEME_KEY = 'carousel-studio-theme'
 
 function readTheme() {
   try {
-    return localStorage.getItem('carousel-studio-theme') || 'system'
+    return localStorage.getItem(THEME_KEY) || 'system'
   } catch {
     return 'system'
   }
 }
 
-function ThemeButton({ theme, onToggle }) {
-  return (
-    <button className="icon-button theme-button" type="button" onClick={onToggle} aria-label="Toggle appearance">
-      {theme === 'dark' ? (
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="4" />
-          <path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" />
-        </svg>
-      ) : (
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.8 8.5 8.5 0 1 0 20.5 14.5Z" />
-        </svg>
-      )}
-    </button>
-  )
+// Legacy hashes (#templates, #designs) still land somewhere sensible.
+const ALIAS = { templates: 'library', designs: 'drafts' }
+const readHash = () => {
+  const id = ALIAS[window.location.hash.slice(1)] || window.location.hash.slice(1)
+  return { view: VIEWS.some((v) => v.id === id) ? id : 'home', library: id === 'library' }
 }
+// Where the home was scrolled when the editor opened, restored on return.
+let savedScroll = 0
 
-function editorUrl(template) {
-  return template ? `/editor.html?template=${encodeURIComponent(template.id)}` : '/editor.html?new=1'
+const scrollToLibrary = () =>
+  requestAnimationFrame(() => document.getElementById('library')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+
+function greeting() {
+  const h = new Date().getHours()
+  return h < 5 ? 'Good evening' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'
 }
 
 export default function App() {
+  const [view, setView] = useState(() => readHash().view)
   const [query, setQuery] = useState('')
-  const [ratio, setRatio] = useState('All')
-  const [photoCount, setPhotoCount] = useState('Any')
-  const [category, setCategory] = useState('All')
-  const [selectedTemplate, setSelectedTemplate] = useState(null)
+  const [preview, setPreview] = useState(null)
   const [theme, setTheme] = useState(readTheme)
+  const { projects, loading, remove } = useProjects()
+  useStyleSheet('studio-css', css)
 
   useEffect(() => {
-    if (theme === 'system') {
-      delete document.documentElement.dataset.theme
-    } else {
-      document.documentElement.dataset.theme = theme
+    if (savedScroll) window.scrollTo({ top: savedScroll, behavior: 'instant' })
+    return () => {
+      savedScroll = window.scrollY
     }
+  }, [])
 
+  useEffect(() => {
+    if (theme === 'system') delete document.documentElement.dataset.theme
+    else document.documentElement.dataset.theme = theme
     try {
-      localStorage.setItem('carousel-studio-theme', theme)
+      localStorage.setItem(THEME_KEY, theme)
     } catch {
-      // Theme selection still works for the current page when storage is unavailable.
+      // Appearance still applies for this visit when storage is unavailable.
     }
   }, [theme])
 
-  const filteredTemplates = useMemo(() => {
-    const search = query.trim().toLocaleLowerCase()
-
-    return TEMPLATES.filter((template) => {
-      const matchesRatio = ratio === 'All' || template.ar === ratio
-      const matchesCategory = category === 'All' || template.cat === category
-      const matchesSearch =
-        !search || `${template.name} ${template.cat} ${template.tags}`.toLocaleLowerCase().includes(search)
-
-      return matchesRatio && matchesCategory && matchesPhotos(template, photoCount) && matchesSearch
-    })
-  }, [category, photoCount, query, ratio])
-
-  const groupedTemplates = useMemo(() => {
-    const groups = new Map()
-    for (const template of filteredTemplates) {
-      if (!groups.has(template.cat)) groups.set(template.cat, [])
-      groups.get(template.cat).push(template)
+  useEffect(() => {
+    const onHash = () => {
+      const h = readHash()
+      setView(h.view)
+      if (h.library) scrollToLibrary()
     }
-    return [...groups.entries()].sort(
-      ([a], [b]) => CATEGORY_ORDER.indexOf(a) - CATEGORY_ORDER.indexOf(b),
-    )
-  }, [filteredTemplates])
+    if (readHash().library) scrollToLibrary()
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
 
-  function useTemplate(template) {
-    window.location.assign(editorUrl(template))
-  }
+  const navigate = useCallback((next, { scroll = true } = {}) => {
+    const hash = next === 'home' ? '' : `#${next}`
+    if (window.location.hash !== hash) {
+      history.pushState(null, '', hash || window.location.pathname)
+    }
+    setView(next)
+    if (scroll) window.scrollTo({ top: 0, behavior: 'instant' })
+  }, [])
 
-  function toggleTheme() {
-    const isDark =
-      theme === 'dark' ||
-      (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-    setTheme(isDark ? 'light' : 'dark')
-  }
+  const openCreate = useCallback(() => {
+    const focus = () => {
+      const el = document.getElementById('create')
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el?.querySelector('[aria-checked="true"]')?.focus({ preventScroll: true })
+    }
+    if (view !== 'home') {
+      navigate('home')
+      requestAnimationFrame(focus)
+    } else focus()
+  }, [navigate, view])
+
+  const isDark =
+    theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+
+  const useTemplate = (t) => go(templateUrl(t))
 
   return (
-    <main className="app-shell">
-      <header className="topbar">
-        <a className="brand" href="/" aria-label="Carousel Studio home">
-          <span className="brand__mark" aria-hidden="true">
-            <span />
-            <span />
-            <span />
-          </span>
-          <span>Carousel Studio</span>
-        </a>
-        <nav className="topbar__actions" aria-label="Main navigation">
-          <ThemeButton theme={theme} onToggle={toggleTheme} />
-          <a className="button button--primary button--small" href={editorUrl(null)}>
-            <span className="plus" aria-hidden="true">+</span>
-            New carousel
-          </a>
-        </nav>
-      </header>
-
-      <section className="hero" aria-labelledby="page-title">
-        <div className="hero__copy">
-          <p className="eyebrow">A little inspiration goes a long way</p>
-          <h1 id="page-title">Make something <span>worth swiping.</span></h1>
-          <p>Thoughtful templates for your next big idea, small moment, or everything in between.</p>
-        </div>
-        <div className="hero__decoration" aria-hidden="true">
-          <div className="hero__tile hero__tile--back" />
-          <div className="hero__tile hero__tile--front">
-            <span>STORY<br />IN MOTION</span>
-            <i />
-          </div>
-        </div>
-      </section>
-
-      <section className="catalog" aria-label="Template library">
-        <div className="catalog__heading">
-          <div>
-            <p className="eyebrow">Made for your next chapter</p>
-            <h2>Explore templates</h2>
-          </div>
-          <p className="catalog__count" aria-live="polite">
-            {filteredTemplates.length} {filteredTemplates.length === 1 ? 'template' : 'templates'}
-          </p>
-        </div>
-
-        <div className="filters">
-          <label className="search-field">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="11" cy="11" r="6.5" />
-              <path d="m16 16 4.5 4.5" />
-            </svg>
-            <input
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search templates"
-              aria-label="Search templates"
-            />
-            {query && (
-              <button type="button" onClick={() => setQuery('')} aria-label="Clear search">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="m7 7 10 10M17 7 7 17" />
-                </svg>
-              </button>
-            )}
-          </label>
-
-          <div className="filter-row">
-            <div className="segmented-control" aria-label="Filter by size">
-              {Object.entries(RATIO_FILTERS).map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  aria-pressed={ratio === value}
-                  onClick={() => setRatio(value)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <div className="chip-row" aria-label="Filter by photo count">
-              {PHOTO_FILTERS.map((value) => (
-                <button
-                  className="chip"
-                  key={value}
-                  type="button"
-                  aria-pressed={photoCount === value}
-                  onClick={() => setPhotoCount(value)}
-                >
-                  {photoFilterLabel(value)}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="category-row" aria-label="Filter by category">
-            {CATEGORIES.map((value) => (
-              <button
-                className="category-chip"
-                key={value}
-                type="button"
-                aria-pressed={category === value}
-                onClick={() => setCategory(value)}
-              >
-                {value === 'All' ? 'All layouts' : value}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {groupedTemplates.length ? (
-          <div className="template-groups">
-            {groupedTemplates.map(([group, templates]) => (
-              <section className="template-group" key={group} aria-labelledby={`group-${group}`}>
-                <div className="template-group__heading">
-                  <h3 id={`group-${group}`}>{group}</h3>
-                  <span>{templates.length}</span>
-                </div>
-                <div className="template-grid">
-                  {templates.map((template) => (
-                    <TemplateCard
-                      key={template.id}
-                      template={template}
-                      onPreview={setSelectedTemplate}
-                      onUse={useTemplate}
-                    />
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
-        ) : (
-          <div className="empty-state">
-            <span className="empty-state__mark" aria-hidden="true">⌕</span>
-            <h3>No templates found</h3>
-            <p>Try a different search or clear a filter to see more ideas.</p>
-            <button
-              className="button button--secondary"
-              type="button"
-              onClick={() => {
-                setQuery('')
-                setRatio('All')
-                setPhotoCount('Any')
-                setCategory('All')
-              }}
-            >
-              Clear filters
-            </button>
-          </div>
-        )}
-      </section>
-
-      <footer className="footer">
-        <p>Made for the moments you want to share.</p>
-        <a href={editorUrl(null)}>Open the full editor <span aria-hidden="true">↗</span></a>
-      </footer>
-
-      <TemplateDialog
-        template={selectedTemplate}
-        onClose={() => setSelectedTemplate(null)}
-        onUse={useTemplate}
+    <div className="studio">
+      <Navigation
+        view={view}
+        onNavigate={navigate}
+        onCreate={openCreate}
+        isDark={isDark}
+        onToggleTheme={() => setTheme(isDark ? 'light' : 'dark')}
+        draftCount={projects.length}
       />
-    </main>
+
+      <main className="workspace" key={view}>
+        {view === 'home' && (
+          <>
+            <header className="welcome">
+              <div>
+                <p className="eyebrow">{greeting()}</p>
+                <h1>What will you make today?</h1>
+              </div>
+              <label className="search-field search-field--hero">
+                <Icon name="search" />
+                <input
+                  type="search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && scrollToLibrary()}
+                  placeholder={`Search ${LIBRARY.length} designs — travel, quotes, torn…`}
+                  aria-label="Search the library"
+                  enterKeyHint="search"
+                />
+                {query && (
+                  <button type="button" onClick={() => setQuery('')} aria-label="Clear search">
+                    <Icon name="close" />
+                  </button>
+                )}
+              </label>
+            </header>
+
+            <CreatePanel id="create" />
+
+            {(loading || projects.length > 0) && (
+              <RecentProjects
+                projects={projects}
+                loading={loading}
+                onDelete={remove}
+                limit={8}
+                onSeeAll={() => navigate('drafts')}
+                onCreate={openCreate}
+              />
+            )}
+
+            <Library query={query} onQueryChange={setQuery} onPreview={setPreview} onUse={useTemplate} />
+          </>
+        )}
+
+        {view === 'drafts' && (
+          <>
+            <div className="page-head">
+              <div>
+                <p className="eyebrow">Saved on this device</p>
+                <h1>Your drafts</h1>
+              </div>
+              <button className="button button--primary button--small" type="button" onClick={openCreate}>
+                <Icon name="plus" size={16} />
+                New
+              </button>
+            </div>
+            <RecentProjects
+              projects={projects}
+              loading={loading}
+              onDelete={remove}
+              onCreate={openCreate}
+              title={`${projects.length} ${projects.length === 1 ? 'draft' : 'drafts'}`}
+            />
+          </>
+        )}
+      </main>
+
+      <TemplateDialog template={preview} onClose={() => setPreview(null)} onUse={useTemplate} />
+    </div>
   )
 }

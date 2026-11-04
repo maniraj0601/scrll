@@ -7,3 +7,15 @@
   [headers.values]
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
+
+# Old editor bookmarks (query string is preserved automatically).
+[[redirects]]
+  from = "/editor.html"
+  to = "/edit"
+  status = 301
+
+# SPA fallback: client-side routes such as /edit are served by index.html.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

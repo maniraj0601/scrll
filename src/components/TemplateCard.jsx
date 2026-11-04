@@ -1,28 +1,26 @@
-import { templateMeta } from '../lib/templates.js'
-import SlidePreview from './SlidePreview.jsx'
+import { memo } from 'react'
+import { RATIO_LABEL } from '../catalog/index.js'
+import { Cover } from './SlidePreview.jsx'
 
-export default function TemplateCard({ template, onPreview, onUse }) {
+// Cover-first card: the design itself is the hero, details stay quiet underneath.
+function TemplateCard({ template, onPreview, onUse }) {
   return (
     <article className="template-card">
-      <button
-        className="template-card__preview"
-        type="button"
-        onClick={() => onPreview(template)}
-        aria-label={`Preview ${template.name}`}
-      >
-        <SlidePreview template={template} compact />
-        <span className="template-card__preview-hint">Preview</span>
-      </button>
-      <div className="template-card__details">
-        <div className="template-card__copy">
-          <p className="eyebrow">{template.style}</p>
-          <h3>{template.name}</h3>
-          <p className="template-card__meta">{templateMeta(template)}</p>
-        </div>
-        <button className="button button--primary button--small" type="button" onClick={() => onUse(template)}>
+      <div className="template-card__frame">
+        <button className="template-card__preview" type="button" onClick={() => onPreview(template)} aria-label={`Preview ${template.name}`}>
+          <Cover template={template} />
+        </button>
+        {template.n > 1 && <span className="template-card__badge">{template.m ? 'Seamless · ' : ''}{template.n} slides</span>}
+        <button className="button button--primary button--small template-card__use" type="button" onClick={() => onUse(template)}>
           Use
         </button>
+      </div>
+      <div className="template-card__copy">
+        <h3>{template.name}</h3>
+        <p className="template-card__meta">{template.cat} · {RATIO_LABEL[template.ar]}</p>
       </div>
     </article>
   )
 }
+
+export default memo(TemplateCard)

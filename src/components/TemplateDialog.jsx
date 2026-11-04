@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { templateMeta } from '../lib/templates.js'
+import { templateMeta } from '../catalog/index.js'
 import SlidePreview from './SlidePreview.jsx'
 
 export default function TemplateDialog({ template, onClose, onUse }) {
@@ -29,7 +29,7 @@ export default function TemplateDialog({ template, onClose, onUse }) {
         <div className="template-dialog__content">
           <div className="template-dialog__header">
             <div>
-              <p className="eyebrow">{template.style}</p>
+              <p className="eyebrow">{template.cat}</p>
               <h2 id="template-dialog-title">{template.name}</h2>
               <p className="template-card__meta">{templateMeta(template)}</p>
             </div>
@@ -41,7 +41,7 @@ export default function TemplateDialog({ template, onClose, onUse }) {
           </div>
           <SlidePreview template={template} />
           <p className="template-dialog__note">
-            Swipe to explore every slide. Replace the gradient photo placeholders with your own images in the editor.
+            Swipe through every slide. Sample photos are placeholders — swap in your own in the editor.
           </p>
           <div className="template-dialog__actions">
             <button className="button button--secondary" type="button" onClick={onClose}>
