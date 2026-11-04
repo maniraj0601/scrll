@@ -4,7 +4,7 @@ import { STICKERS } from '../editor/stickers.js'
 
 // React port of the editor's template renderer (src/editor/engine.js `layer()`), so previews on the
 // home page match what opens in the editor. Sizes are % of the slide; text uses cqw.
-const FONT_FAMILY = {
+export const FONT_FAMILY = {
   h: 'var(--font-hand)',
   n: 'var(--font-sans)',
   s: 'var(--font-serif)',
@@ -18,7 +18,7 @@ const FONT_FAMILY = {
 const STICKER = new Map(STICKERS.items.map((s) => [s.id, s]))
 const emojiUrl = (u) =>
   `https://cdn.jsdelivr.net/gh/microsoft/fluentui-emoji@main/assets/${encodeURIComponent(u)}/Color/${u.toLowerCase().replace(/ /g, '_')}_color.svg`
-function stickerSrc(s, col) {
+export function stickerSrc(s, col) {
   if (s.k === 'emoji') return emojiUrl(s.u)
   if (s.k !== 'svg') return ''
   const svg = s.svg.replace(/currentColor/g, (s.tint && col) || s.col || '#111111')

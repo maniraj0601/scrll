@@ -1,9 +1,10 @@
 import Icon from './Icon.jsx'
 
-// Two destinations only: Home (create + recent drafts + the whole library) and Drafts
-// (manage everything you've saved). Stickers and layouts live in the editor and library.
+// Home (create, recent drafts, regular templates), Explore (trending layouts and
+// stickers) and Drafts (everything saved on this device).
 export const VIEWS = [
   { id: 'home', label: 'Home', icon: 'home' },
+  { id: 'explore', label: 'Explore', icon: 'explore' },
   { id: 'drafts', label: 'Drafts', icon: 'designs' },
 ]
 
@@ -74,10 +75,11 @@ export default function Navigation({ view, onNavigate, onCreate, isDark, onToggl
 
       <nav className="tabbar" aria-label="Main navigation">
         {item(VIEWS[0])}
+        {item(VIEWS[1])}
         <button className="tabbar__create" type="button" onClick={onCreate} aria-label="Create a new carousel">
           <Icon name="plus" size={22} />
         </button>
-        {item(VIEWS[1])}
+        {item(VIEWS[2])}
       </nav>
     </>
   )

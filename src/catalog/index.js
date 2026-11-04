@@ -3,24 +3,33 @@ import { LAYOUTS } from './layouts.js'
 
 export { photoURL } from './primitives.js'
 
-// One library for the home page: multi-slide carousels first, then Explore layouts.
-// The editor receives the same data via vite.config.js (window.CATALOG).
+// Two shelves sharing one schema:
+//  - TEMPLATES: the regular multi-slide carousels (Home).
+//  - EXPLORE:   trending photo layouts and collages (Explore page).
+// The editor imports the same modules (src/editor/engine.js), so both stay in sync.
 const photoCount = (t) => (t.m ? t.L : t.S.flatMap((s) => s.L)).filter((l) => l.t === 'i' || l.t === 'p').length
+const withMeta = (kind) => (t) => ({ ...t, kind, tags: t.tags || '', p: photoCount(t), n: t.m || t.S.length })
 
-export const LIBRARY = [
-  ...CAROUSELS.map((t) => ({ ...t, kind: 'carousel' })),
-  ...LAYOUTS.map((t) => ({ ...t, kind: 'layout' })),
-].map((t) => ({ ...t, tags: t.tags || '', p: photoCount(t), n: t.m || t.S.length }))
+export const TEMPLATES = CAROUSELS.map(withMeta('carousel'))
+export const EXPLORE = LAYOUTS.map(withMeta('layout'))
+
+// Hand-picked "Trending now" rail: the looks people are making most this season.
+const TRENDING_IDS = [
+  'x-dump9', 'x-torn', 'x-film', 'x-digicam', 'x-ripreveal', 'x-postcard',
+  'x-player', 'x-journal', 'x-pano', 'x-profile', 'x-bows', 'x-tokyo',
+]
+const byId = new Map(EXPLORE.map((t) => [t.id, t]))
+export const TRENDING = TRENDING_IDS.map((id) => byId.get(id)).filter(Boolean)
 
 export const CATEGORY_ORDER = [
   'Carousels', 'Seamless', 'Story', 'Editorial', 'Scrapbook', 'Tips & text',
   'Photo dump', 'Photo in photo', 'Strips & bands', 'Torn & cutout', 'Type', 'Overlay',
 ]
 const known = new Set(CATEGORY_ORDER)
-export const CATEGORIES = [
+export const categoriesOf = (list) => [
   'All',
-  ...CATEGORY_ORDER.filter((c) => LIBRARY.some((t) => t.cat === c)),
-  ...[...new Set(LIBRARY.map((t) => t.cat))].filter((c) => !known.has(c)),
+  ...CATEGORY_ORDER.filter((c) => list.some((t) => t.cat === c)),
+  ...[...new Set(list.map((t) => t.cat))].filter((c) => !known.has(c)),
 ]
 
 export const FORMAT_INFO = {

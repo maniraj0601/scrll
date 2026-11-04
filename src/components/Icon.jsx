@@ -5,6 +5,8 @@ const PATHS = {
   designs: <><rect x="3" y="4" width="14" height="16" rx="2" /><path d="M21 7v10" /><path d="M7 9h6M7 13h4" /></>,
   layouts: <><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 12h18M12 3v18" /></>,
   stickers: <><path d="M15.5 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h9.5L21 14.5V5a2 2 0 0 0-2-2h-3.5" /><path d="M14 21v-5a2 2 0 0 1 2-2h5" /><path d="M8 13s1.5 2 4 2" /><path d="M9 9h.01M15 9h.01" /></>,
+  explore: <><circle cx="12" cy="12" r="9" /><path d="m15.5 8.5-2 5-5 2 2-5z" /></>,
+  flame: <path d="M12 21c-3.9 0-7-2.8-7-6.6 0-2.6 1.5-4.4 3-5.9.3 1.6 1.2 2.7 2.3 3.1C10 8.6 11.3 5.4 14 3c.4 3 2 4.6 3.4 6.3C18.6 10.8 19 12.3 19 14.4 19 18.2 15.9 21 12 21Z" />,
   plus: <path d="M12 5v14M5 12h14" />,
   minus: <path d="M5 12h14" />,
   search: <><circle cx="11" cy="11" r="6.5" /><path d="m16 16 4.5 4.5" /></>,

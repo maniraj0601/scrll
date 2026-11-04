@@ -4,7 +4,7 @@ import { goBack, navigate } from '../lib/router.js'
 import css from './editor.css?inline'
 import { mountEditor } from './engine.js'
 
-const DEEP_LINK = /[?&](template|new|open)=/
+const DEEP_LINK = /[?&](template|new|open|sticker)=/
 
 export default function Editor() {
   const ref = useRef(null)

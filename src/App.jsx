@@ -3,10 +3,11 @@ import Navigation, { VIEWS } from './components/Navigation.jsx'
 import CreatePanel from './components/CreatePanel.jsx'
 import RecentProjects from './components/RecentProjects.jsx'
 import Library from './components/Library.jsx'
+import Explore from './components/Explore.jsx'
 import TemplateDialog from './components/TemplateDialog.jsx'
 import Icon from './components/Icon.jsx'
-import { LIBRARY } from './catalog/index.js'
-import { templateUrl } from './lib/links.js'
+import { TEMPLATES } from './catalog/index.js'
+import { stickerUrl, templateUrl } from './lib/links.js'
 import { navigate as go } from './lib/router.js'
 import { useStyleSheet } from './lib/useStyleSheet.js'
 import css from './styles.css?inline'
@@ -22,11 +23,16 @@ function readTheme() {
   }
 }
 
-// Legacy hashes (#templates, #designs) still land somewhere sensible.
+// Hashes: #explore, #explore/stickers, #drafts. Legacy #templates/#designs still land sensibly.
 const ALIAS = { templates: 'library', designs: 'drafts' }
 const readHash = () => {
-  const id = ALIAS[window.location.hash.slice(1)] || window.location.hash.slice(1)
-  return { view: VIEWS.some((v) => v.id === id) ? id : 'home', library: id === 'library' }
+  const [raw, sub] = window.location.hash.slice(1).split('/')
+  const id = ALIAS[raw] || raw
+  return {
+    view: VIEWS.some((v) => v.id === id) ? id : 'home',
+    library: id === 'library',
+    tab: id === 'explore' && sub === 'stickers' ? 'stickers' : 'layouts',
+  }
 }
 // Where the home was scrolled when the editor opened, restored on return.
 let savedScroll = 0
@@ -41,6 +47,7 @@ function greeting() {
 
 export default function App() {
   const [view, setView] = useState(() => readHash().view)
+  const [exploreTab, setExploreTab] = useState(() => readHash().tab)
   const [query, setQuery] = useState('')
   const [preview, setPreview] = useState(null)
   const [theme, setTheme] = useState(readTheme)
@@ -68,6 +75,7 @@ export default function App() {
     const onHash = () => {
       const h = readHash()
       setView(h.view)
+      setExploreTab(h.tab)
       if (h.library) scrollToLibrary()
     }
     if (readHash().library) scrollToLibrary()
@@ -75,12 +83,13 @@ export default function App() {
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
 
-  const navigate = useCallback((next, { scroll = true } = {}) => {
-    const hash = next === 'home' ? '' : `#${next}`
+  const navigate = useCallback((next, { scroll = true, tab } = {}) => {
+    const hash = next === 'home' ? '' : next === 'explore' && tab === 'stickers' ? '#explore/stickers' : `#${next}`
     if (window.location.hash !== hash) {
       history.pushState(null, '', hash || window.location.pathname)
     }
     setView(next)
+    if (next === 'explore') setExploreTab(tab || 'layouts')
     if (scroll) window.scrollTo({ top: 0, behavior: 'instant' })
   }, [])
 
@@ -100,6 +109,7 @@ export default function App() {
     theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
 
   const useTemplate = (t) => go(templateUrl(t))
+  const useSticker = (s) => go(stickerUrl(s))
 
   return (
     <div className="studio">
@@ -127,8 +137,8 @@ export default function App() {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && scrollToLibrary()}
-                  placeholder={`Search ${LIBRARY.length} designs — travel, quotes, torn…`}
-                  aria-label="Search the library"
+                  placeholder={`Search ${TEMPLATES.length} templates — travel, quotes, tips…`}
+                  aria-label="Search templates"
                   enterKeyHint="search"
                 />
                 {query && (
@@ -152,8 +162,36 @@ export default function App() {
               />
             )}
 
-            <Library query={query} onQueryChange={setQuery} onPreview={setPreview} onUse={useTemplate} />
+            <Library
+              title="Templates"
+              items={TEMPLATES}
+              query={query}
+              onQueryChange={setQuery}
+              onPreview={setPreview}
+              onUse={useTemplate}
+            />
+
+            <button className="explore-promo" type="button" onClick={() => navigate('explore')}>
+              <span className="explore-promo__icon" aria-hidden="true">
+                <Icon name="flame" size={22} />
+              </span>
+              <span>
+                <strong>Looking for what’s trending?</strong>
+                <small>Photo dumps, torn paper, film strips and stickers live in Explore.</small>
+              </span>
+              <Icon name="chevron" size={18} />
+            </button>
           </>
+        )}
+
+        {view === 'explore' && (
+          <Explore
+            tab={exploreTab}
+            onTab={(tab) => navigate('explore', { tab, scroll: false })}
+            onPreview={setPreview}
+            onUse={useTemplate}
+            onUseSticker={useSticker}
+          />
         )}
 
         {view === 'drafts' && (

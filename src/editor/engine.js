@@ -22,7 +22,7 @@ const CHROME = EDITOR_MARKUP.replace(/<i data-icon="([\w-]+)"([^>]*)><\/i>/g, (_
  * Mount the editor into `container`.
  * @param {HTMLElement} container
  * @param {{ search?: string, hash?: string, onExit?: () => void }} options
- *   search: deep link (?template=id | ?new=1&ar=4/5&n=3 | ?open=projectId)
+ *   search: deep link (?template=id | ?new=1&ar=4/5&n=3 | ?sticker=id | ?open=projectId)
  *   onExit: called after the draft is saved when the user taps Back
  *   onMissing: called when the link names an unknown template or a draft that isn't stored
  * @returns {() => void} dispose
@@ -1187,12 +1187,13 @@ $('xdel').onclick=()=>{const n=xs.sel.size;if(!n)return;xs.sel.forEach(id=>xHid(
 $('xres').onclick=()=>{const n=xHid().size;xHid().clear();hidSave();xgrid();toast(`Restored ${n} item${n>1?'s':''}`)};
 $('xdone').onclick=()=>{xs.edit=false;xs.sel.clear();xgrid()};
 if(/^#explore/.test(hash)){xs.tab=/stickers/.test(hash)?'stk':'lay';home('x',false)}
-/* deep links from the Studio home: ?template=id, ?new=1&ar=4/5&n=3, ?open=projectId.
+/* deep links from the Studio home: ?template=id (carousel or Explore layout), ?new=1&ar=4/5&n=3, ?sticker=id, ?open=projectId.
    Sessions started this way return to the home page on Back, and the URL is rewritten to ?open= so a refresh resumes the draft. */
 const params=new URLSearchParams(search),requestedTemplate=params.get('template'),requestedOpen=params.get('open');
 let fromHome=false;const homeUrl=()=>{fromHome=true;history.replaceState(history.state,'',location.pathname+'?open='+encodeURIComponent(pid))};
-if(requestedTemplate){const template=TPL.find(t=>t.id===requestedTemplate);if(template){fromHome=true;openEd(template).then(homeUrl)}else onMissing()}
+if(requestedTemplate){const template=TPL.find(t=>t.id===requestedTemplate)||EXP.find(t=>t.id===requestedTemplate);if(template){fromHome=true;openEd(template).then(homeUrl)}else onMissing()}
 else if(params.get('new')==='1'){const ar=['4/5','1/1','9/16'].includes(params.get('ar'))?params.get('ar'):'4/5',n=Math.min(20,Math.max(1,Math.round(+params.get('n'))||1)),d=toDoc(null,ar);d.n=n;d.bg=Array(n).fill('#ffffff');startEd(d,null,'Untitled carousel');homeUrl()}
+else if(params.get('sticker')){const s=SMAP.get(params.get('sticker'));if(s){startEd(toDoc(null,'4/5'),null,'Untitled carousel');addSticker(s.id);homeUrl()}else onMissing()}
 else if(requestedOpen)DBp.then(()=>idb('p','readonly',q=>q.get(requestedOpen))).then(r=>{if(r){openProj(requestedOpen).then(()=>{fromHome=true});}else onMissing()});
   /* ---- end legacy engine ---- */
 

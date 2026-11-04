@@ -3,8 +3,11 @@
 ## Architecture
 React + Vite single-page app with one HTML entry (`index.html`). `npm run build` outputs `dist/`, which Netlify publishes (`netlify.toml` adds the SPA fallback and redirects old `/editor.html` links to `/edit`).
 
-- `/` → Studio home (`src/App.jsx`): create panel, drafts, and the template/layout library.
-- `/edit?template=id | ?new=1&ar=4/5&n=3 | ?open=projectId` → editor, lazy-loaded (`src/editor/Editor.jsx`).
+- `/` → Studio home (`src/App.jsx`), with hash views:
+  - Home: create panel, recent drafts, and the regular carousel Templates.
+  - `#explore` (Layouts) and `#explore/stickers` (Stickers): `src/components/Explore.jsx`, with the Trending rail ids in `src/catalog/index.js`.
+  - `#drafts`.
+- `/edit?template=id | ?new=1&ar=4/5&n=3 | ?sticker=id | ?open=projectId` → editor (`template` accepts carousel or layout ids), lazy-loaded (`src/editor/Editor.jsx`).
 
 ## Key files
 - `src/main.jsx`: root router (`src/lib/router.js`, a tiny History-API store with `navigate`/`goBack`/`linkClick`).

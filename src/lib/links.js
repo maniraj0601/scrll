@@ -14,4 +14,6 @@ export const templateUrl = (template) => `/edit?template=${encodeURIComponent(te
 export const blankUrl = (format = '4/5', slides = 1) =>
   `/edit?new=1&ar=${encodeURIComponent(format)}&n=${slides}`
 
+export const stickerUrl = (sticker) => `/edit?sticker=${encodeURIComponent(sticker.id)}`
+
 export const projectUrl = (id) => `/edit?open=${encodeURIComponent(id)}`
