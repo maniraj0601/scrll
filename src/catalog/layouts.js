@@ -1,4 +1,4 @@
-import { blobCp, G, I, K, R, scalCp, T, tearCp, TR } from './primitives.js'
+import { blobCp, G, hline, I, K, R, scalCp, T, tearCp, TR, vline } from './primitives.js'
 import { XP } from './photos.js'
 
 // Explore layouts: trending Pinterest-style single-slide compositions with sample photos.
@@ -33,6 +33,10 @@ export const LAYOUTS = [
  {bg:'#111',L:[I(0,0,100,100,G.sun,X('green')),I(42,0,16,100,G.sea,X('pinksea'))]}]},
 {id:'x-trip',name:'Triptych',cat:'Strips & bands',ar:'4/5',tags:'three columns coloured words',S:[
  {bg:'#111',L:[I(0,0,33.4,100,G.peak,X('mtn')),I(33.3,0,33.4,100,G.sun,X('sunsetman')),I(66.6,0,33.4,100,G.night,X('stars')),T(0,20,33.4,3,'view',2.6,{a:'center',c:'#ffd27a',wt:700,f:'inter'}),T(33.3,20,33.4,3,'sunset',2.6,{a:'center',c:'#ffb0a0',wt:700,f:'inter'}),T(66.6,20,33.4,3,'stars',2.6,{a:'center',c:'#b9c8ff',wt:700,f:'inter'})]}]},
+// One photo, swept with translucent colour bands left to right — the "gradient slice" look
+// trending on Pinterest moodboards. One continuous image underneath, not N separate crops.
+{id:'x-wash',name:'Gradient wash',cat:'Strips & bands',ar:'4/5',tags:'gradient color wash sunset strips trending duotone slice',S:[
+ {bg:'#111',L:[I(0,0,100,100,G.dusk,X('alps')),...['rgba(20,24,65,.5)','rgba(45,40,110,.46)','rgba(90,50,130,.42)','rgba(150,60,120,.4)','rgba(210,90,90,.4)','rgba(240,140,70,.42)','rgba(255,190,80,.46)'].map((c,i)=>R(i*14.2857,0,14.6,100,c)),T(6,90,88,4,'golden hour, sliced',3.4,{a:'center',c:'#fff',wt:600,ls:.1})]}]},
 {id:'x-pano',name:'The long way home',cat:'Strips & bands',ar:'4/5',tags:'seamless panorama swipe words',m:3,bg:'#222',L:[I(0,0,100,100,G.peak,X('alps')),T(3,16,28,8,'take the',6,{f:'s',wt:500,ts:.3}),T(37,48,28,8,'long way',6,{f:'s',wt:500,ts:.3}),T(70,78,28,8,'home.',6,{f:'s',wt:500,ts:.3})]},
 {id:'x-view',name:'The view',cat:'Editorial',ar:'4/5',tags:'split white minimal caption',S:[
  {bg:'#ffffff',L:[I(50,0,50,100,G.forest,X('tree')),I(7,34,36,28.8,G.sea,X('dock')),T(7,29,18,3,'the',2.2,{c:'#111',wt:500}),T(25,29,18,3,'view',2.2,{c:'#111',a:'right',wt:500}),T(7,64,18,3,'slow',2.2,{c:'#111',wt:500}),T(25,64,18,3,'days',2.2,{c:'#111',a:'right',wt:500})]}]},
@@ -62,6 +66,16 @@ export const LAYOUTS = [
  {bg:'#111',L:[I(0,0,100,100,G.sun,X('resort')),K('f-digicam',14,30,72),I(22.1,37.2,40.5,23.7,G.rose,X('smile')),T(44,57,18,3,"'26 10 25",2.2,{f:'roboto',c:'#ff9a3c',wt:500,a:'right'})]}]},
 {id:'x-rec',name:'REC',cat:'Overlay',ar:'4/5',tags:'viewfinder camcorder friends',S:[
  {bg:'#111',L:[I(0,0,100,100,G.sun,X('friends')),K('f-viewfinder',4,23,92),T(8,84,60,4,"JUL 14 2026  11:11 PM",2.4,{f:'roboto',c:'#fff',wt:500})]}]},
+// Real line elements, not a flattened graphic — drag a line onto the photo's horizon, delete
+// one, or add more from Shapes → Lines & arrows. The grid is a starting point, not a sticker.
+{id:'x-grid',name:'Grid overlay',cat:'Overlay',ar:'4/5',tags:'grid lines composition rule of thirds architecture editable',S:[
+ {bg:'#111',L:[I(0,0,100,100,G.peak,X('skyline')),
+  vline(33.3,4,96,{c:'rgba(255,255,255,.85)',lt:.35}),
+  vline(66.6,4,96,{c:'rgba(255,255,255,.85)',lt:.35}),
+  hline(33.3,4,96,{c:'rgba(255,255,255,.85)',lt:.35}),
+  hline(66.6,4,96,{c:'rgba(255,255,255,.85)',lt:.35}),
+  ...[[33.3,33.3],[66.6,33.3],[33.3,66.6],[66.6,66.6]].map(([px,py])=>R(px-1.1,py-1.1,2.2,2.2,'rgba(255,255,255,.9)',{circ:1,rd:'50%'})),
+  T(4,1.5,70,3,'ALIGN TO YOUR SHOT',2.1,{c:'rgba(255,255,255,.75)',wt:600,ls:.2})]}]},
 {id:'x-postcard',name:'Postcard',cat:'Scrapbook',ar:'4/5',tags:'postcard travel handwritten blur',S:[
  {bg:'#222',L:[I(0,0,100,100,G.sea,X('santorini',{bl:8})),K('f-postcard',6,32,88),I(11.5,36.4,38.5,37,G.sea,X('santorini')),T(58.5,49,31,22,'wish you were\nhere. the sea\nis so blue x',2.8,{f:'h',c:'#3b3326',wt:600,lh:1.5})]}]},
 {id:'x-film',name:'Film roll',cat:'Scrapbook',ar:'4/5',tags:'film strip analog handwritten',S:[

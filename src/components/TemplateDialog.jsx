@@ -1,8 +1,11 @@
 import { useEffect, useRef } from 'react'
 import { templateMeta } from '../catalog/index.js'
 import SlidePreview from './SlidePreview.jsx'
+import FavoriteButton from './FavoriteButton.jsx'
+import Icon from './Icon.jsx'
+import { favoriteKey } from '../lib/favorites.js'
 
-export default function TemplateDialog({ template, onClose, onUse }) {
+export default function TemplateDialog({ template, onClose, onUse, onShare }) {
   const dialogRef = useRef(null)
 
   useEffect(() => {
@@ -33,11 +36,17 @@ export default function TemplateDialog({ template, onClose, onUse }) {
               <h2 id="template-dialog-title">{template.name}</h2>
               <p className="template-card__meta">{templateMeta(template)}</p>
             </div>
-            <button className="icon-button" type="button" onClick={onClose} aria-label="Close preview">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="m6 6 12 12M18 6 6 18" />
-              </svg>
-            </button>
+            <div className="template-dialog__header-actions">
+              <FavoriteButton favKey={favoriteKey(template.kind, template.id)} label={template.name} />
+              <button className="icon-button" type="button" onClick={() => onShare(template)} aria-label={`Share ${template.name}`}>
+                <Icon name="share" size={18} />
+              </button>
+              <button className="icon-button" type="button" onClick={onClose} aria-label="Close preview">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="m6 6 12 12M18 6 6 18" />
+                </svg>
+              </button>
+            </div>
           </div>
           <SlidePreview template={template} />
           <p className="template-dialog__note">

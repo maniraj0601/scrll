@@ -1,6 +1,8 @@
 import { memo } from 'react'
 import { RATIO_LABEL } from '../catalog/index.js'
 import { Cover } from './SlidePreview.jsx'
+import FavoriteButton from './FavoriteButton.jsx'
+import { favoriteKey } from '../lib/favorites.js'
 
 // Cover-first card: the design itself is the hero, details stay quiet underneath.
 function TemplateCard({ template, onPreview, onUse }) {
@@ -10,6 +12,11 @@ function TemplateCard({ template, onPreview, onUse }) {
         <button className="template-card__preview" type="button" onClick={() => onPreview(template)} aria-label={`Preview ${template.name}`}>
           <Cover template={template} />
         </button>
+        <FavoriteButton
+          favKey={favoriteKey(template.kind, template.id)}
+          label={template.name}
+          className="template-card__fav"
+        />
         {template.n > 1 && <span className="template-card__badge">{template.m ? 'Seamless · ' : ''}{template.n} slides</span>}
         <button className="button button--primary button--small template-card__use" type="button" onClick={() => onUse(template)}>
           Use

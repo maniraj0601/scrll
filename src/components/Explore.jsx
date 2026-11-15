@@ -1,10 +1,12 @@
 import { memo, useDeferredValue, useMemo, useState } from 'react'
 import Library from './Library.jsx'
-import TemplateCard from './TemplateCard.jsx'
+import TrendingRail from './TrendingRail.jsx'
 import Icon from './Icon.jsx'
+import FavoriteButton from './FavoriteButton.jsx'
 import { FONT_FAMILY, stickerSrc } from './SlidePreview.jsx'
 import { EXPLORE, TRENDING } from '../catalog/index.js'
 import { STICKERS } from '../editor/stickers.js'
+import { favoriteKey } from '../lib/favorites.js'
 
 const TABS = [
   { id: 'layouts', label: 'Layouts', icon: 'layouts', count: EXPLORE.length },
@@ -48,17 +50,20 @@ function WidgetThumb({ sticker: s }) {
   )
 }
 
-const StickerTile = memo(function StickerTile({ sticker: s, onUse }) {
+export const StickerTile = memo(function StickerTile({ sticker: s, onUse }) {
   return (
-    <button
-      type="button"
-      className={`sticker-tile${isDarkTint(s) ? ' sticker-tile--dark' : ''}${s.bg ? ' sticker-tile--fill' : ''}`}
-      onClick={() => onUse(s)}
-      aria-label={`Start a design with ${s.n}`}
-      title={s.n}
-    >
-      {s.k === 'els' ? <WidgetThumb sticker={s} /> : <img src={stickerSrc(s)} alt="" loading="lazy" decoding="async" />}
-    </button>
+    <div className="sticker-tile-wrap">
+      <button
+        type="button"
+        className={`sticker-tile${isDarkTint(s) ? ' sticker-tile--dark' : ''}${s.bg ? ' sticker-tile--fill' : ''}`}
+        onClick={() => onUse(s)}
+        aria-label={`Start a design with ${s.n}`}
+        title={s.n}
+      >
+        {s.k === 'els' ? <WidgetThumb sticker={s} /> : <img src={stickerSrc(s)} alt="" loading="lazy" decoding="async" />}
+      </button>
+      <FavoriteButton favKey={favoriteKey('sticker', s.id)} label={s.n} className="sticker-tile__fav" />
+    </div>
   )
 })
 
@@ -152,25 +157,7 @@ export default function Explore({ tab, onTab, onPreview, onUse, onUseSticker }) 
         ))}
       </div>
 
-      {showTrending && (
-        <section className="trending" aria-labelledby="trending-title">
-          <div className="section__head">
-            <h2 id="trending-title">
-              <Icon name="flame" size={20} className="trending__flame" />
-              Trending now
-            </h2>
-            <p className="library__count">Most-used looks this week</p>
-          </div>
-          <div className="trending__rail">
-            {TRENDING.map((t, i) => (
-              <div className="trending__item" key={t.id}>
-                <span className="trending__rank" aria-hidden="true">{i + 1}</span>
-                <TemplateCard template={t} onPreview={onPreview} onUse={onUse} />
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+      {showTrending && <TrendingRail items={TRENDING} onPreview={onPreview} onUse={onUse} />}
 
       {tab === 'layouts' ? (
         <Library

@@ -84,6 +84,27 @@ function Layer({ layer, photoWidth }) {
 
   if (t === 'r') return <div className="slide-layer" style={{ ...style, background: layer.c }} />
 
+  if (t === 'l') {
+    // `lt` (thickness) is a width-basis percentage like every other size field; cqw keeps it
+    // width-relative even when applied to the height side of a vertical line, since plain %
+    // on `height` would otherwise resolve against the slide's height instead.
+    const vertical = (r || 0) === 90
+    const thickness = `${layer.lt ?? 0.5}cqw`
+    return (
+      <div
+        className="slide-layer slide-layer--line"
+        style={{
+          left: `${x}%`,
+          top: `${y}%`,
+          width: vertical ? thickness : `${w}%`,
+          height: vertical ? `${w}%` : thickness,
+          background: layer.c || '#fff',
+          ...(o != null ? { opacity: o } : {}),
+        }}
+      />
+    )
+  }
+
   if (t === 'p') {
     return (
       <div className="slide-layer polaroid" style={{ ...box, transform: `rotate(${r || 0}deg)` }}>

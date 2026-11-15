@@ -8,6 +8,20 @@ export const R = (x, y, w, h, c, o = {}) => ({ t: 'r', x, y, w, h, c, ...o })
 export const P = (x, y, w, g, r, cap, photo) => ({ t: 'p', x, y, w, g, r, cap, ...(photo ? { photo } : {}) })
 export const K = (id, x, y, w, o = {}) => ({ t: 's', id, x, y, w, ...o })
 
+// A genuine line element (same shape the editor's own "Lines & arrows" tool creates), not a
+// flattened graphic — so grid lines a template starts with can be dragged, restyled, deleted
+// or added to afterwards with zero extra editor work. `w` is the pre-rotation length; `r`
+// rotates around the line's own centre (0 = horizontal, 90 = vertical).
+export const L = (x, y, w, r = 0, o = {}) => ({ t: 'l', x, y, w, r, ...o })
+
+// `hline`/`vline` take the coordinates people actually think in (a row/column position and
+// its span, in the same x/y/w percentage basis as every other primitive — width-relative for
+// x/w, height-relative for y). `vline`'s span is a height-basis quantity carried in `w`; the
+// r:90 marker tells the width/height-aware conversion in engine.js's toDoc() to treat it as
+// one, since x/w and y/h aren't on the same percentage scale once the slide isn't square.
+export const hline = (y, x0, x1, o = {}) => L(x0, y, x1 - x0, 0, o)
+export const vline = (x, y0, y1, o = {}) => L(x, y0, y1 - y0, 90, o)
+
 export const photoURL = (id, w = 1200) => `https://images.unsplash.com/${id}?auto=format&fit=crop&w=${w}&q=85`
 
 /* cutouts: % polygons used as clip paths (procedural torn edges, blobs, scallops).

@@ -574,6 +574,25 @@ svg {
   margin-bottom: 3px;
 }
 
+.template-dialog__header-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+}
+
+.template-dialog__header-actions .favorite-button {
+  position: static;
+  color: var(--ink);
+  background: var(--fill);
+  opacity: 1;
+}
+
+.template-dialog__header-actions .favorite-button--on {
+  color: #fff;
+  background: #ff375f;
+}
+
 .template-dialog .slide-strip {
   max-height: 54dvh;
   border-radius: 14px;
@@ -595,6 +614,94 @@ svg {
   gap: 9px;
   padding-top: 15px;
   border-top: 1px solid var(--line);
+}
+
+.share-dialog {
+  width: min(380px, calc(100vw - 32px));
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  color: var(--ink);
+  background: var(--surface-solid);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.22);
+}
+
+.share-dialog::backdrop {
+  background: rgba(14, 16, 22, 0.45);
+  -webkit-backdrop-filter: blur(7px);
+  backdrop-filter: blur(7px);
+}
+
+.share-dialog__content {
+  padding: 24px;
+}
+
+.share-dialog__qr {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 4px;
+  padding: 18px;
+  border-radius: 16px;
+  background: var(--fill);
+}
+
+.qr-code {
+  flex: none;
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px var(--line);
+  stroke: none;
+}
+
+/* The global `svg { fill: none; stroke: currentColor }` reset would otherwise win over the
+   QR modules' inline fill attributes and render an invisible/outlined code. */
+.qr-code rect {
+  fill: #fff;
+}
+
+.qr-code path {
+  fill: #111;
+}
+
+.share-dialog__code-label {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.share-dialog__code-value {
+  margin: 0;
+  color: var(--ink);
+  font-family: "Roboto Mono", ui-monospace, monospace;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.share-dialog__link {
+  display: flex;
+  gap: 8px;
+  margin: 4px 0 14px;
+}
+
+.share-dialog__link input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--muted);
+  background: var(--fill);
+  font-size: 13px;
+}
+
+.share-dialog__link .button {
+  flex: none;
+}
+
+.share-dialog .button--primary {
+  width: 100%;
+  justify-content: center;
 }
 
 @media (max-width: 760px) {
@@ -1294,7 +1401,7 @@ svg {
     inset: auto 0 0;
     z-index: 20;
     display: grid;
-    grid-template-columns: 1fr 1fr auto 1fr;
+    grid-template-columns: repeat(var(--tabbar-side, 2), 1fr) auto repeat(var(--tabbar-side, 2), 1fr);
     align-items: center;
     padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
     border-top: 1px solid var(--line);
@@ -1543,6 +1650,63 @@ svg {
   transform: none;
 }
 
+.favorite-button {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: #fff;
+  background: rgba(28, 28, 30, 0.6);
+  place-items: center;
+  cursor: pointer;
+  transition: opacity 160ms ease, background 160ms ease, transform 160ms ease;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+.favorite-button svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.favorite-button--on {
+  color: #fff;
+  background: #ff375f;
+}
+
+.favorite-button--on svg {
+  fill: currentColor;
+}
+
+.favorite-button:active {
+  transform: scale(0.88);
+}
+
+.template-card__fav {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  opacity: 0;
+}
+
+.template-card__fav.favorite-button--on {
+  opacity: 1;
+}
+
+.template-card:hover .template-card__fav,
+.template-card__fav:focus-visible {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .template-card__fav {
+    opacity: 1;
+  }
+}
+
 .template-card__copy {
   min-width: 0;
   padding: 9px 3px 0;
@@ -1725,6 +1889,34 @@ svg {
   gap: 12px;
 }
 
+.sticker-tile-wrap {
+  position: relative;
+}
+
+.sticker-tile__fav {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 26px;
+  height: 26px;
+  opacity: 0;
+}
+
+.sticker-tile__fav.favorite-button--on {
+  opacity: 1;
+}
+
+.sticker-tile-wrap:hover .sticker-tile__fav,
+.sticker-tile__fav:focus-visible {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .sticker-tile__fav {
+    opacity: 1;
+  }
+}
+
 .sticker-tile {
   display: grid;
   place-items: center;
@@ -1792,70 +1984,6 @@ svg {
   align-items: center;
   overflow: hidden;
   white-space: pre;
-}
-
-.explore-promo {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  width: 100%;
-  margin-top: 30px;
-  padding: 16px 18px;
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  color: var(--ink);
-  background: var(--surface);
-  text-align: left;
-  font: inherit;
-  cursor: pointer;
-  transition: transform 220ms var(--ease), box-shadow 220ms var(--ease);
-}
-
-.explore-promo > span:nth-child(2) {
-  display: grid;
-  flex: 1;
-  gap: 3px;
-}
-
-.explore-promo strong {
-  font-size: 15px;
-}
-
-.explore-promo small {
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.explore-promo > svg {
-  color: var(--muted);
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-}
-
-.explore-promo__icon {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
-  color: #fff;
-  background: linear-gradient(135deg, #ff9f0a, #ff375f);
-}
-
-.explore-promo__icon svg {
-  fill: rgba(255, 255, 255, 0.25);
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linejoin: round;
-}
-
-@media (hover: hover) {
-  .explore-promo:hover {
-    transform: translateY(-1px);
-    box-shadow: var(--shadow);
-  }
 }
 
 @media (max-width: 520px) {

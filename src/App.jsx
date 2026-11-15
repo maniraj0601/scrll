@@ -3,15 +3,19 @@ import Navigation, { VIEWS } from './components/Navigation.jsx'
 import CreatePanel from './components/CreatePanel.jsx'
 import RecentProjects from './components/RecentProjects.jsx'
 import Library from './components/Library.jsx'
+import TrendingRail from './components/TrendingRail.jsx'
 import Explore from './components/Explore.jsx'
+import Favorites from './components/Favorites.jsx'
 import TemplateDialog from './components/TemplateDialog.jsx'
+import ShareDialog from './components/ShareDialog.jsx'
 import Icon from './components/Icon.jsx'
-import { TEMPLATES } from './catalog/index.js'
+import { TEMPLATES, TRENDING } from './catalog/index.js'
 import { stickerUrl, templateUrl } from './lib/links.js'
 import { navigate as go } from './lib/router.js'
 import { useStyleSheet } from './lib/useStyleSheet.js'
 import css from './styles.css?inline'
 import { useProjects } from './lib/projects.js'
+import { useFavorites } from './lib/favorites.js'
 
 const THEME_KEY = 'carousel-studio-theme'
 
@@ -50,8 +54,10 @@ export default function App() {
   const [exploreTab, setExploreTab] = useState(() => readHash().tab)
   const [query, setQuery] = useState('')
   const [preview, setPreview] = useState(null)
+  const [shareItem, setShareItem] = useState(null)
   const [theme, setTheme] = useState(readTheme)
   const { projects, loading, remove } = useProjects()
+  const { count: favoriteCount } = useFavorites()
   useStyleSheet('studio-css', css)
 
   useEffect(() => {
@@ -120,6 +126,7 @@ export default function App() {
         isDark={isDark}
         onToggleTheme={() => setTheme(isDark ? 'light' : 'dark')}
         draftCount={projects.length}
+        favoriteCount={favoriteCount}
       />
 
       <main className="workspace" key={view}>
@@ -162,6 +169,8 @@ export default function App() {
               />
             )}
 
+            <TrendingRail items={TRENDING} onPreview={setPreview} onUse={useTemplate} limit={8} onSeeAll={() => navigate('explore')} />
+
             <Library
               title="Templates"
               items={TEMPLATES}
@@ -170,17 +179,6 @@ export default function App() {
               onPreview={setPreview}
               onUse={useTemplate}
             />
-
-            <button className="explore-promo" type="button" onClick={() => navigate('explore')}>
-              <span className="explore-promo__icon" aria-hidden="true">
-                <Icon name="flame" size={22} />
-              </span>
-              <span>
-                <strong>Looking for what’s trending?</strong>
-                <small>Photo dumps, torn paper, film strips and stickers live in Explore.</small>
-              </span>
-              <Icon name="chevron" size={18} />
-            </button>
           </>
         )}
 
@@ -192,6 +190,10 @@ export default function App() {
             onUse={useTemplate}
             onUseSticker={useSticker}
           />
+        )}
+
+        {view === 'favorites' && (
+          <Favorites onPreview={setPreview} onUse={useTemplate} onUseSticker={useSticker} />
         )}
 
         {view === 'drafts' && (
@@ -217,7 +219,8 @@ export default function App() {
         )}
       </main>
 
-      <TemplateDialog template={preview} onClose={() => setPreview(null)} onUse={useTemplate} />
+      <TemplateDialog template={preview} onClose={() => setPreview(null)} onUse={useTemplate} onShare={setShareItem} />
+      <ShareDialog item={shareItem} onClose={() => setShareItem(null)} />
     </div>
   )
 }

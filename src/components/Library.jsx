@@ -2,6 +2,7 @@ import { useDeferredValue, useMemo, useState } from 'react'
 import TemplateCard from './TemplateCard.jsx'
 import Icon from './Icon.jsx'
 import { categoriesOf, FORMAT_INFO, matchesSlides, searchText, SLIDE_FILTERS } from '../catalog/index.js'
+import { codeFor } from '../lib/shareCode.js'
 
 const SIZES = [['All', 'All sizes', ''], ...Object.entries(FORMAT_INFO).map(([k, v]) => [k, v.label, v.ratio])]
 
@@ -20,6 +21,9 @@ export default function Library({ id = 'library', title = 'Library', items: sour
   const [slides, setSlides] = useState('Any')
   const search = useDeferredValue(query.trim().toLocaleLowerCase())
 
+  // A share code (e.g. "K7P2X") is an exact, whole-query match — a quick way to jump straight
+  // to one design instead of scrolling, without it interfering with normal keyword search.
+  const codeMatch = /^[A-Z0-9]{5}$/.test(query.trim().toUpperCase())
   const items = useMemo(
     () =>
       source.filter(
@@ -27,9 +31,9 @@ export default function Library({ id = 'library', title = 'Library', items: sour
           (ratio === 'All' || t.ar === ratio) &&
           (category === 'All' || t.cat === category) &&
           matchesSlides(t, slides) &&
-          (!search || searchText(t).includes(search)),
+          (!search || searchText(t).includes(search) || (codeMatch && codeFor(t.id) === query.trim().toUpperCase())),
       ),
-    [category, ratio, search, slides, source],
+    [category, codeMatch, query, ratio, search, slides, source],
   )
 
   const clear = () => {
