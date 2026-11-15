@@ -16,6 +16,7 @@ import { useStyleSheet } from './lib/useStyleSheet.js'
 import css from './styles.css?inline'
 import { useProjects } from './lib/projects.js'
 import { useFavorites } from './lib/favorites.js'
+import { useInstallPrompt } from './lib/installPrompt.js'
 
 const THEME_KEY = 'carousel-studio-theme'
 
@@ -58,6 +59,7 @@ export default function App() {
   const [theme, setTheme] = useState(readTheme)
   const { projects, loading, remove } = useProjects()
   const { count: favoriteCount } = useFavorites()
+  const { canInstall, promptInstall, dismiss: dismissInstall } = useInstallPrompt()
   useStyleSheet('studio-css', css)
 
   useEffect(() => {
@@ -128,6 +130,24 @@ export default function App() {
         draftCount={projects.length}
         favoriteCount={favoriteCount}
       />
+
+      {canInstall && (
+        <div className="install-banner" role="status">
+          <span className="install-banner__icon" aria-hidden="true">
+            <Icon name="download" size={18} />
+          </span>
+          <span className="install-banner__copy">
+            <b>Install Carousel Studio</b>
+            <small>Launch it like an app, right from your home screen</small>
+          </span>
+          <button className="button button--primary button--small" type="button" onClick={promptInstall}>
+            Install
+          </button>
+          <button className="icon-button install-banner__dismiss" type="button" onClick={dismissInstall} aria-label="Dismiss">
+            <Icon name="close" size={16} />
+          </button>
+        </div>
+      )}
 
       <main className="workspace" key={view}>
         {view === 'home' && (
