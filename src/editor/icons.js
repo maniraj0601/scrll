@@ -6,10 +6,10 @@ import {
   AlignStartVertical, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart, ArrowDown,
   ArrowUp, Blend, Bookmark, BringToFront, Check, ChevronLeft, ChevronRight, Circle, Columns2, Copy, CopyPlus, Crop,
   Brush, Download, Share, Info, FileText, Ellipsis, Eraser, Film, FlipHorizontal2, FlipVertical2, GalleryHorizontal, GripHorizontal, Group, Heart,
-  Image, ImageOff, ImagePlus, Images, Import, Layers, LayoutDashboard, Maximize, Maximize2, MessageCircle, Minimize2, Minus,
+  Image, ImageOff, ImagePlus, Images, Import, Layers, LayoutDashboard, LayoutTemplate, Maximize, Maximize2, MessageCircle, Minimize2, Minus,
   Moon, PanelRight, PictureInPicture2, Play, Plus, Redo2, Replace, RotateCcw, RotateCw, Rows2, Search, Send, SendToBack, Shapes,
   SlidersHorizontal, Square, SquareDashed, SquareDashedMousePointer, SquarePlus, TextAlignCenter, TextAlignEnd,
-  TextAlignStart, Trash2, Scissors, Lasso, Shuffle, PenTool, Pen, PencilLine, Highlighter, Paintbrush, Feather, Zap, Sticker, Compass, Pencil, RotateCcwSquare, Type, Undo2, Ungroup, Upload, X,
+  TextAlignStart, Trash2, Scissors, Lasso, Shuffle, PenTool, Pen, PencilLine, Highlighter, Paintbrush, Paintbrush2, SprayCan, Feather, Zap, Sticker, Compass, Pencil, RotateCcwSquare, Type, Undo2, Ungroup, Upload, X,
 } from 'lucide'
 
 export const EDITOR_ICONS = {
@@ -34,10 +34,10 @@ export const EDITOR_ICONS = {
   dist_h: AlignHorizontalDistributeCenter, dist_v: AlignVerticalDistributeCenter, sparkles: Sparkles, sun: Sun,
   cut: Scissors, lasso: Lasso, shuffle: Shuffle, pen: PenTool,
   // drawing brushes
-  draw: PencilLine, b_pen: Pen, b_pc: Pencil, b_mk: Paintbrush, b_hl: Highlighter, b_neon: Zap, b_cal: Feather, b_er: Eraser,
+  draw: PencilLine, b_pen: Pen, b_pc: Pencil, b_mk: Paintbrush, b_hl: Highlighter, b_neon: Zap, b_cal: Feather, b_chalk: Paintbrush2, b_spray: SprayCan, b_er: Eraser,
   drop: Droplet, move: Move, wand: WandSparkles, focus: Focus,
   // slides
-  addsl: SquarePlus, dupsl: CopyPlus, delsl: Trash2, impsl: Import,
+  addsl: SquarePlus, dupsl: CopyPlus, delsl: Trash2, impsl: Import, tplsl: LayoutTemplate,
   // social preview
   heart: Heart, comment: MessageCircle, send: Send, save: Bookmark, more: Ellipsis,
 }

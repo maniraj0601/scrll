@@ -64,7 +64,7 @@ const HID={lay:new Set(),stk:new Set()};
 try{HID.lay=new Set(JSON.parse(localStorage.getItem('cs.hiddenLay')||'[]'));HID.stk=new Set(JSON.parse(localStorage.getItem('cs.hiddenStk')||'[]'))}catch(_){}
 const hidSave=()=>{try{localStorage.setItem('cs.hiddenLay',JSON.stringify([...HID.lay]));localStorage.setItem('cs.hiddenStk',JSON.stringify([...HID.stk]))}catch(_){}};
 
-const CAT={templates:CAROUSELS,layouts:LAYOUTS,gradients:GRADIENTS},TPL=CAT.templates,G=CAT.gradients;
+const CAT={templates:CAROUSELS,layouts:LAYOUTS,gradients:GRADIENTS},TPL=CAT.templates,G=CAT.gradients,TPL_ALL=[...CAROUSELS,...LAYOUTS];
 
 const FONT={s:'var(--serif)',n:'var(--sans)',h:'var(--hand)',inter:'Inter,system-ui,sans-serif',bebas:"'Bebas Neue',Impact,sans-serif",bodo:"'Bodoni Moda',Georgia,serif",dance:"'Dancing Script',cursive",roboto:"'Roboto Mono',monospace"};
 function layer(l){
@@ -208,8 +208,8 @@ function cutApply(){const D=cutDraw,e=D&&ge(D.id);if(!e){cutCancel();return}if(D
  if(P.length<3){toast('That shape is too small');return}
  e.cp=P.map(p=>`${+(p.x/e.w*100).toFixed(2)}% ${+(p.y/e.h*100).toFixed(2)}%`).join(',');e.ck='pen';delete e.cq;cutEnd();commit();render();panel();toast('Cutout applied · choose None to undo it')}
 /* freehand drawing: brushes, per-stroke glow, eraser. Points are stored in the drawing's base box (bw × bh) and stretch with it. */
-const BRUSH=[['pen','Pen','Smooth ink'],['pc','Pencil','Grainy pencil'],['mk','Marker','Bold marker'],['hl','Highlighter','See-through highlighter'],['neon','Neon','Glowing neon tube'],['cal','Calligraphy','Angled nib · thick and thin'],['er','Eraser','Erase ink (E)']],
- BR={pen:{sz:8,a:1},pc:{sz:5,a:.92},mk:{sz:22,a:.9},hl:{sz:40,a:.38},neon:{sz:10,a:1},cal:{sz:20,a:1},er:{sz:44}},
+const BRUSH=[['pen','Pen','Smooth ink'],['pc','Pencil','Grainy pencil'],['mk','Marker','Bold marker'],['hl','Highlighter','See-through highlighter'],['neon','Neon','Glowing neon tube'],['cal','Calligraphy','Angled nib · thick and thin'],['chalk','Chalk','Soft grainy chalk'],['spray','Spray','Scattered spray texture'],['er','Eraser','Erase ink (E)']],
+ BR={pen:{sz:8,a:1},pc:{sz:5,a:.92},mk:{sz:22,a:.9},hl:{sz:40,a:.38},neon:{sz:10,a:1},cal:{sz:20,a:1},chalk:{sz:16,a:.8},spray:{sz:26,a:.85},er:{sz:44}},
  INKC=['#16161a','#ffffff','#ff3b30','#ff9500','#ffcc00','#34c759','#30b0c7','#0a84ff','#5e5ce6','#af52de','#ff2d55','#a2845e'],
  GLC=['#ffffff','#ff2d55','#ff9f0a','#ffd60a','#30d158','#64d2ff','#0a84ff','#bf5af2'];
 let drawMode=false,inkId=null,inkDrag=null,PEN={t:'pen',c:'#16161a',sz:{},o:1,g:0,gc:'',sm:45};
@@ -230,7 +230,10 @@ function calPath(x,p,w){const a=-Math.PI/4,nx=Math.cos(a)*w/2,ny=Math.sin(a)*w/2
 function inkStroke(x,s,px){x.save();x.lineCap=s.t==='hl'?'butt':'round';x.lineJoin='round';
  if(s.t==='er'){x.globalCompositeOperation='destination-out';x.lineWidth=s.w;x.strokeStyle='#000';inkPath(x,s.p);x.stroke();x.restore();return}
  const a=(BR[s.t]?.a??1)*(s.o??1);x.globalAlpha=a;
- const body=(c,w)=>{if(s.t==='cal'){x.fillStyle=x.strokeStyle=c;calPath(x,s.p,w);x.fill();x.lineWidth=w*.12;x.stroke()}else{x.lineWidth=w;x.strokeStyle=s.t==='pc'?grain(x,c):c;inkPath(x,s.p);x.stroke()}};
+ const body=(c,w)=>{if(s.t==='cal'){x.fillStyle=x.strokeStyle=c;calPath(x,s.p,w);x.fill();x.lineWidth=w*.12;x.stroke()}
+  else if(s.t==='spray'){x.fillStyle=c;const p=s.p,n=p.length/2,per=Math.max(4,Math.round(w*.55));
+   for(let i=0;i<n;i++){const px=p[i*2],py=p[i*2+1];for(let j=0;j<per;j++){const a=Math.random()*Math.PI*2,r=Math.sqrt(Math.random())*w/2;x.beginPath();x.arc(px+Math.cos(a)*r,py+Math.sin(a)*r,Math.max(.5,w*.035),0,Math.PI*2);x.fill()}}}
+  else{x.lineWidth=w;x.strokeStyle=s.t==='pc'||s.t==='chalk'?grain(x,c):c;inkPath(x,s.p);x.stroke()}};
  if(s.g>0){const[r,g,b]=rgb(hex(s.gc||s.c));x.shadowColor=`rgba(${r},${g},${b},${Math.min(1,.4+s.g/110)})`;x.shadowBlur=glowR(s)*px;const n=a<1?1:s.g>70?3:s.g>35?2:1;for(let i=0;i<n;i++)body(s.c,s.w);x.shadowColor='transparent';x.shadowBlur=0}
  else if(s.t!=='neon')body(s.c,s.w);
  if(s.t==='neon'){if(!(s.g>0))body(s.c,s.w);body(mixW(s.c,.75),s.w*.42)}
@@ -304,7 +307,13 @@ function syncVideoPlayback(){if(!doc||disposed)return;if($('pv').classList.conta
 function drawRulers(){if(!doc)return;const dpr=Math.max(1,window.devicePixelRatio||1),width=doc.n*doc.W*z,height=doc.H*z,target=48/Math.max(z,.01),power=10**Math.floor(Math.log10(target)),step=[1,2,5,10].map(v=>v*power).find(v=>v>=target)||10*power,minor=step/5;
  const paint=(id,length,vertical)=>{const canvas=$(`${id}`).querySelector('canvas'),ctx=canvas.getContext('2d'),cssW=vertical?22:length,cssH=vertical?length:22;canvas.style.width=cssW+'px';canvas.style.height=cssH+'px';canvas.width=Math.ceil(cssW*dpr);canvas.height=Math.ceil(cssH*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,cssW,cssH);ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--mute').trim()||'#8e8e93';ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--line').trim()||'rgba(60,60,67,.16)';ctx.font='10px -apple-system,BlinkMacSystemFont,sans-serif';ctx.textBaseline='middle';
   for(let point=0;point<=(vertical?doc.H:doc.n*doc.W);point+=minor){const pos=point*z,major=Math.abs(point/step-Math.round(point/step))<1e-6;ctx.beginPath();if(vertical){ctx.moveTo(cssW, pos);ctx.lineTo(cssW-(major?9:4),pos)}else{ctx.moveTo(pos,cssH);ctx.lineTo(pos,cssH-(major?9:4))}ctx.stroke();if(major){const label=String(point);if(vertical){ctx.save();ctx.translate(7,Math.min(cssH-3,pos+2));ctx.rotate(-Math.PI/2);ctx.textAlign='left';ctx.fillText(label,0,0);ctx.restore()}else{ctx.textAlign='left';ctx.fillText(label,pos+3,cssH/2)}}}};
- $('rulerH').style.width=width+'px';$('rulerV').style.height=height+'px';paint('rulerH',width,false);paint('rulerV',height,true)}
+ $('rulerH').style.width=width+'px';$('rulerV').style.height=height+'px';paint('rulerH',width,false);paint('rulerV',height,true);stickRulers()}
+// Rulers live inside #zm (so they share its coordinate space and scroll with it), which
+// otherwise means they scroll out of view entirely once zoom makes the canvas bigger than
+// the viewport. Clamp their offset so they never go further from the canvas than their
+// resting position, but do slide down/right to hug the visible edge of #cv once scrolled.
+function stickRulers(){if(!doc)return;const cvR=$('cv').getBoundingClientRect(),zmR=$('zm').getBoundingClientRect();
+ $('rulerH').style.top=Math.max(-22,cvR.top-zmR.top)+'px';$('rulerV').style.left=Math.max(-22,cvR.left-zmR.left)+'px'}
 function render(){const{W,H,n}=doc,st=$('stage');
  $('zm').style.width=n*W*z+'px';$('zm').style.height=H*z+'px';$('zf').textContent=Math.round(z*100)+'%';$('cw').classList.toggle('zoomed',Math.abs(z-fitZ())>.004);st.style.cssText=`width:${n*W}px;height:${H}px;transform:scale(${z});--k:${1/z}`;
  $('bgs').innerHTML=doc.mbg?`<div class="bg" style="left:0;top:0;width:${n*W}px;height:${H}px;background:${doc.mbg}"></div>`:doc.bg.map((b,i)=>`<div class="bg" style="left:${i*W}px;top:0;width:${W}px;height:${H}px;background:${b||'#fff'}"></div>`).join('');
@@ -321,7 +330,7 @@ function quickActions(e){const qa=$('qa');if(!e||drag||eraseDrag){qa.classList.r
   if(e.type==='img'&&!m)h=B('pick','photo','Add photo or video')+sep+B('split','sph','Split side by side',{v:'h'})+B('split','spv','Split top and bottom',{v:'v'})+B('layfr','lay','Collage layouts')+sep+common;
   else if(crop)h=B('crop','done','Done cropping',{on:true})+B('fit','fit','Fit whole media')+B('fill','fill','Fill frame');
   else if(m&&e.stk)h=B('flipx','flx','Flip horizontally',{on:!!e.fx})+sep+common;
-  else if(m)h=B('pick','photo',`Replace ${m.type} with a photo or video`)+B('crop','crop',m.type==='video'?'Move video in frame':'Crop',{on:false})+B('fit','fit','Fit whole media')+B('fill','fill','Fill frame')+B('flipx','flx','Flip horizontally',{on:!!e.fx})+(m.type==='image'?B('erase','brush',erasing?'Finish erasing':'Erase',{on:erasing})+(erasing?B('bop','unerase',brushOp==='restore'?'Back to erase':'Restore (un-erase)',{on:brushOp==='restore',v:brushOp==='restore'?'erase':'restore'}):''):'')+B('cutdraw','cut','Cutout · draw a shape')+sep+common;
+  else if(m)h=B('pick','photo',`Replace ${m.type} with a photo or video`)+B('crop','crop',m.type==='video'?'Move video in frame':'Crop',{on:false})+B('fit','fit','Fit whole media')+B('fill','fill','Fill frame')+B('flipx','flx','Flip horizontally',{on:!!e.fx})+(m.type==='image'?B('erase','brush',erasing?'Finish erasing':'Erase',{on:erasing})+(erasing?B('bop','unerase',brushOp==='restore'?'Back to erase':'Restore (un-erase)',{on:brushOp==='restore',v:brushOp==='restore'?'erase':'restore'}):''):'')+B('cutdraw','lasso','Cutout · draw a shape')+sep+common;
   else if(e.type==='draw')h=B('inkedit','draw','Edit drawing')+sep+common;
   else h=common;
   qa.innerHTML=h}
@@ -438,10 +447,10 @@ function panel(){const e=sel&&ge(sel);let h='',key=mode;$('ed').classList.toggle
  const DEL=a=>IB(a,'del','Delete (⌫)',null,null,' dz');
  if(cutDraw&&cutDraw.id!==sel)cutEnd();
  if(cutDraw){const n=cutDraw.pts.length;key='cut';
-  h=HD('cut','Freehand cutout',n?`${n} point${n>1?'s':''}${n>2?' · tap the blue dot to close':''}`:'Draw on the selected photo',IB('cutx','x','Cancel (Esc)'))
+  h=HD('lasso','Freehand cutout',n?`${n} point${n>1?'s':''}${n>2?' · tap the blue dot to close':''}`:'Draw on the selected photo',IB('cutx','x','Cancel (Esc)'))
    +`<ol class="cuthow"><li><b>Drag</b> around the part you want to keep — it cuts when you let go.</li><li>Or <b>tap</b> point by point for clean straight edges, then tap the first point (or press Return).</li></ol>`
    +TG(TT('cutundo','undo','Undo point',{tip:'Remove the last point (⌫)'})+TT('cutclr','reset','Clear',{tip:'Start again'})+TT('cutx','x','Cancel',{tip:'Leave without cutting (Esc)'}))
-   +`<button type="button" class="add-hero" data-a="cutok"${n<3?' disabled':''}>${ic('cut')}<span><b>Apply cutout</b><small>${n<3?'Needs at least 3 points':'Return ↵'}</small></span></button>`}
+   +`<button type="button" class="add-hero" data-a="cutok"${n<3?' disabled':''}>${ic('lasso')}<span><b>Apply cutout</b><small>${n<3?'Needs at least 3 points':'Return ↵'}</small></span></button>`}
  else if(multi.size>1){const gs=new Set([...multi].map(id=>ge(id)?.group).filter(Boolean)),canUngroup=gs.size===1&&[...multi].every(id=>ge(id)?.group),few=multi.size<3;key='multi';
   h=HD('multi',`${multi.size} selected`,canUngroup?'Group':'Shift-click to add or remove',IB('multiDup','dup','Duplicate selection')+DEL('multiDel')+IB('done','done','Done (Esc)'))
    +SEC('Arrange',TG(TT('front','front','Front',{tip:'Bring to front'})+TT('fwd','fwd','Forward',{tip:'Bring forward'})+TT('bwd','bwd','Backward',{tip:'Send backward'})+TT('bottom','bottom','Back',{tip:'Send to back'})),PL(canUngroup?'ungroup':'group',canUngroup?'ungroup':'group',canUngroup?'Ungroup':'Group',{tip:canUngroup?'Ungroup objects':'Group objects so they move together'}))
@@ -493,7 +502,7 @@ function panel(){const e=sel&&ge(sel);let h='',key=mode;$('ed').classList.toggle
    +SEC(er?'Eraser':'Stroke',S('_psz','Size',1,er?240:120,1)+(er?'':S('_pop','Opacity',.1,1,.01)+S('_psm','Smoothing',0,100,1)))
    +(er?'':SEC('Glow',S('_pgl','Intensity',0,100,1)+`<div class="fills">${glowSw(PEN.gc,'inkgc')}</div>`,t==='neon'&&!PEN.g?'<small class="isx">Neon glows by default</small>':''))
    +TG(TT('inkundo','undo','Undo',{tip:'Undo last stroke (⌘Z)'})+TT('inkredo','redo','Redo',{tip:'Redo (⇧⌘Z)'})+TT('inkclr','reset','Clear',{dz:1,tip:'Clear the drawing on this slide'})+TT('inkdone','done','Done',{tip:'Finish drawing (Esc)'}))
-   +'<p class="hint">Hold still at the end of a stroke to snap it straight (or hold Shift). Keys 1–7 switch brushes, [ ] change size.</p>'}
+   +`<p class="hint">Hold still at the end of a stroke to snap it straight (or hold Shift). Keys 1–${BRUSH.length} switch brushes, [ ] change size.</p>`}
  else if(mode==='lay'){const fr=e&&e.type==='img'&&!layWhole,rs=n=>LAYS[n].map(([x,y,w,h])=>`<rect x="${x*100+1.5}" y="${y*125+1.5}" width="${w*100-3}" height="${h*125-3}" rx="4"/>`).join(''),g=lgOf(e);key='lay:'+layTab;
   h=HD('lay','Layouts',fr?'Inside the selected frame':'Whole slide '+(cur+1),IB('back','done','Done'),TABS(layTab,Object.keys(LGR).map(k=>[k,k]),'laytab'))
    +(e?.type==='img'?`<div class="tabs tgt">${[[true,'frame','In frame'],[false,'slide','Whole slide']].map(([f,n,l])=>`<button type="button"${fr===f?' aria-pressed="true"':' data-a="laywhole"'}>${ic(n)}${l}</button>`).join('')}</div>`:'')
@@ -506,10 +515,13 @@ function panel(){const e=sel&&ge(sel);let h='',key=mode;$('ed').classList.toggle
  else if(mode==='imp'){key='imp';const L=impL;
   h=HD('impsl','Import slides',`Adds another draft’s slides after slide ${doc.n}`,IB('back','done','Done'))
   +(!L?'<p class="hint">Loading your drafts…</p>':L.length?`<div class="imps">${L.map(p=>{const fit=p.H!==doc.H;return `<button type="button" class="imp" data-a="impd" data-v="${p.id}"${impBusy?' disabled':''}><span class="imt" style="aspect-ratio:1080/${p.H||1350}">${p.thumb?`<img src="${p.thumb}" alt="">`:''}</span><span class="imx"><b>${esc(p.name)}</b><small>${p.n} slide${p.n>1?'s':''} · ${ARL[AR_OF[p.H]]||'Custom'} · ${ago(p.updated)}</small>${fit?`<small class="imf">Fitted to ${ARL[AR_OF[doc.H]]||'this size'}</small>`:''}</span>${ic('plus')}</button>`}).join('')}</div><p class="hint">Slides are added to the end, with their photos, text and drawings. You can always undo.</p>`:'<p class="hint">No other drafts yet. Anything you make is saved automatically, so it will show up here.</p>')}
+ else if(mode==='tpl'){key='tpl';const ar=AR_OF[doc.H],L=TPL_ALL.filter(t=>t.ar===ar);
+  h=HD('tplsl','Insert a template',`Inserts after slide ${cur+1} · ${ARL[ar]||'this size'} only`,IB('back','done','Done'))
+  +(L.length?`<div class="imps">${L.map(t=>`<button type="button" class="imp" data-a="tpld" data-v="${t.id}"${tplBusy?' disabled':''}><span class="imt" style="aspect-ratio:1080/${({'1/1':1080,'9/16':1920})[t.ar]||1350}"></span><span class="imx"><b>${esc(t.name)}</b><small>${t.cat} · ${(t.m||t.S.length)} slide${(t.m||t.S.length)>1?'s':''}</small></span>${ic('plus')}</button>`).join('')}</div><p class="hint">Slides are inserted with their photos, text and drawings — tap one to continue editing. You can always undo.</p>`:`<p class="hint">No ${ARL[ar]||'matching'} templates yet.</p>`)}
  else{key='slide';h=HD('slides',`Slide ${cur+1}`,`of ${doc.n} · ${esc(doc.name||'Untitled carousel')}`,'')
   +SEC('Slide',C('_bg','Background'))
   +SEC('Project',`<label class="pr"><span>Name</span><input type="text" data-k="_nm" maxlength="60" placeholder="Untitled carousel"></label><label class="pr"><span>Preview as</span><select data-k="previewTarget">${PREVIEW_TARGETS.map(([k,label])=>`<option value="${k}"${k===pvKey()?' selected':''}>${label}</option>`).join('')}</select></label>`)
-  +SEC('Add slides',PL('sadd','addsl','Blank slide')+PL('imp','impsl','From another draft',{tip:'Import every slide of another draft into this one'}))
+  +SEC('Add slides',PL('sadd','addsl','Blank slide')+PL('imp','impsl','From another draft',{tip:'Import every slide of another draft into this one'})+PL('tpl','tplsl','From a template',{tip:`Insert a ${ARL[AR_OF[doc.H]]||'matching'} template after this slide`}))
   +'<p class="hint">Tap anything on the canvas to edit it. Shift-click to select several.</p>'}
  const sc=$('pn').scrollTop,same=panel.k===key;panel.k=key;$('pn').innerHTML=h;$('pn').scrollTop=same?sc:0;
  if(!e&&mode==='slide'&&multi.size<2){$('pn').querySelector('[data-k=_bg]').value=hex(doc.mbg||doc.bg[cur]);$('pn').querySelector('[data-k=_nm]').value=doc.name||''}sync()}
@@ -562,6 +574,8 @@ function act(a,v){const e=sel&&ge(sel),L=doc.els,fin=()=>{commit();render();pane
  case'back':mode='slide';slideOpen=false;render();return panel();
  case'imp':sel=null;multi.clear();eraseMode=null;cropId=null;mode='imp';slideOpen=false;impL=null;render();panel();impLoad();return;
  case'impd':importDraft(v);return;
+ case'tpl':sel=null;multi.clear();eraseMode=null;cropId=null;mode='tpl';slideOpen=false;render();panel();return;
+ case'tpld':importTemplate(v);return;
  case'stk':addSticker(v);return;
  case'stktab':stkTab=v;return panel();
  case'stkre':{if(!e?.stk)return;const sd=SMAP.get(e.stk),id=e.id;stkKey(sd,v).then(k=>{const x=ge(id);if(!k||!x)return;x.k=k;x.col=v;commit();render();panel()});return}
@@ -655,7 +669,11 @@ $('stage').addEventListener('pointerdown',ev=>{if(!drawMode)return;ev.stopImmedi
 $('stage').addEventListener('pointermove',ev=>{if(!drawMode)return;inkCur(ev);const D=inkDrag;if(!D||D.pid!==ev.pointerId)return;const e=ge(D.id);if(!e)return;
  const r=$('stage').getBoundingClientRect(),P=D.st.p,f=1-Math.min(.88,PEN.sm/100*.88),min=1/z,list=ev.getCoalescedEvents?.()||[];
  for(const q of list.length?list:[ev]){const x=(q.clientX-r.left)/z-e.x,y=(q.clientY-r.top)/z-e.y;D.rx=x;D.ry=y;
-  if(D.line||ev.shiftKey){D.line=D.line||ev.shiftKey;P.length=2;P.push(+x.toFixed(1),+y.toFixed(1));continue}
+  if(D.line||ev.shiftKey){D.line=D.line||ev.shiftKey;const sx=P[0],sy=P[1],ddx=x-sx,ddy=y-sy,dist=Math.hypot(ddx,ddy);
+   // Shift constrains to the nearest 45°, like Illustrator/Photoshop/Procreate's line-snap,
+   // not just "straight at whatever angle it was dragged".
+   let fx=x,fy=y;if(dist>2){const a=Math.round(Math.atan2(ddy,ddx)/(Math.PI/4))*(Math.PI/4);fx=sx+Math.cos(a)*dist;fy=sy+Math.sin(a)*dist}
+   P.length=2;P.push(+fx.toFixed(1),+fy.toFixed(1));continue}
   const nx=D.lx+(x-D.lx)*f,ny=D.ly+(y-D.ly)*f;if(Math.hypot(nx-D.lx,ny-D.ly)<min)continue;D.lx=nx;D.ly=ny;P.push(+nx.toFixed(1),+ny.toFixed(1));
   if(Math.hypot(x-D.hx,y-D.hy)*z>6){D.hx=x;D.hy=y;inkHold()}}
  if(!D.raf)D.raf=requestAnimationFrame(()=>{D.raf=0;if(inkDrag===D)paint(NODES.get(e.id),e)})});
@@ -691,15 +709,36 @@ $('stage').addEventListener('pointerdown',ev=>{if(spaceDown||ev.button===1||ev.b
  else return;
  Object.assign(drag,{x:ev.clientX,y:ev.clientY,e0:{...e},mv:0});try{ev.target.setPointerCapture(ev.pointerId)}catch(_){}ev.preventDefault()});
 listen(window,'pointermove',ev=>{if(!drag)return;const e=ge(sel);if(!e)return;const dx=(ev.clientX-drag.x)/z,dy=(ev.clientY-drag.y)/z,o=drag.e0;drag.mv=1;if(e.lg&&(drag.m==='mv'||drag.m==='rs')){delete e.lg;delete e.li}
- if(drag.m==='multi'){drag.items.forEach(q=>{const item=ge(q.id);if(item){item.x=q.x+dx;item.y=q.y+dy;clampVideoToSlide(item,q.x)}})}
+ if(drag.m==='multi'){drag.items.forEach(q=>{const item=ge(q.id);if(item){item.x=q.x+dx;item.y=q.y+dy;clampVideoToSlide(item,q.x)}});
+  // Snap the lead item (e) against everything outside the selection, then carry the same
+  // correction through the rest of the group so it moves as one instead of drifting apart.
+  if(ev.altKey||ev.metaKey)guides(e,null,null,[],[]);
+  else{const ox=e.x,oy=e.y;snap(e,new Set(drag.items.map(it=>it.id)));const ddx=e.x-ox,ddy=e.y-oy;
+   if(ddx||ddy)drag.items.forEach(q=>{if(q.id!==e.id){const it=ge(q.id);if(it){it.x+=ddx;it.y+=ddy}}})}}
  else if(drag.m==='mv'){e.x=o.x+dx;e.y=o.y+dy;if(ev.altKey||ev.metaKey)guides(e,null,null,[],[]);else snap(e);clampVideoToSlide(e,o.x)}
  else if(drag.m==='cp'){e.ox=o.ox+dx/o.w;e.oy=o.oy+dy/o.h}
  else if(drag.m==='rt'){const q=$('stage').getBoundingClientRect();let a=Math.atan2((ev.clientY-q.top)/z-(o.y+o.h/2),(ev.clientX-q.left)/z-(o.x+o.w/2))*180/Math.PI+90;if(a>180)a-=360;const m=Math.round(a/15)*15;e.r=Math.round(Math.abs(a-m)<4?m:a)}
  else{const q=o.r*Math.PI/180,c=Math.cos(q),s=Math.sin(q),lx=dx*c+dy*s,ly=-dx*s+dy*c,[hx,hy]=drag.h;let w=o.w,h=o.h;
   if(hx&&hy){// corners keep the aspect ratio; side handles change one dimension
-   const k=Math.max(12/Math.min(o.w,o.h),1+(hx*lx*o.w+hy*ly*o.h)/(o.w*o.w+o.h*o.h));w=o.w*k;h=o.h*k;if(o.type==='text')e.fs=o.fs*k}
-  else{if(hx)w=Math.max(12,o.w+hx*lx);if(hy)h=Math.max(12,o.h+hy*ly)}
-  const sx=hx*(w-o.w)/2,sy=hy*(h-o.h)/2,cx=o.x+o.w/2+sx*c-sy*s,cy=o.y+o.h/2+sx*s+sy*c;Object.assign(e,{w,h,x:cx-w/2,y:cy-h/2})}
+   const k=Math.max(12/Math.min(o.w,o.h),1+(hx*lx*o.w+hy*ly*o.h)/(o.w*o.w+o.h*o.h));w=o.w*k;h=o.h*k;if(o.type==='text')e.fs=o.fs*k;
+   const sx=hx*(w-o.w)/2,sy=hy*(h-o.h)/2,cx=o.x+o.w/2+sx*c-sy*s,cy=o.y+o.h/2+sx*s+sy*c;Object.assign(e,{w,h,x:cx-w/2,y:cy-h/2})}
+  else if(e.ln&&!hy&&hx){
+   // A line's end handle can move anywhere — reangling it, not just sliding along the
+   // existing direction — while the opposite end stays anchored in place. The dragged end
+   // is itself a magnetic target too: it can snap to the slide edges/centre and to other
+   // elements, same as a normal move, with priority over the 15° angle snap so the two
+   // don't fight each other.
+   const ocx=o.x+o.w/2,ocy=o.y+o.h/2,fx=ocx-hx*o.w/2*c,fy=ocy-hx*o.w/2*s;
+   let px=ocx+hx*o.w/2*c+dx,py=ocy+hx*o.w/2*s+dy,bx=null,by=null;
+   if(!ev.altKey&&!ev.metaKey){const T=8/z,excl=new Set([e.id]),cd=cands({x:px,y:py,w:0,h:0,id:e.id},excl);
+    bx=near(cd.X,px,0,T,[0]);by=near(cd.Y,py,0,T,[0]);if(bx)px+=bx.d;if(by)py+=by.d}
+   const nw=Math.max(12,Math.hypot(px-fx,py-fy));
+   let ang=Math.atan2(py-fy,px-fx)*180/Math.PI+(hx<0?180:0);if(ang>180)ang-=360;if(ang<-180)ang+=360;
+   if(!bx&&!by&&!ev.altKey&&!ev.metaKey){const am=Math.round(ang/15)*15;if(Math.abs(ang-am)<4)ang=am}
+   Object.assign(e,{w:nw,h,x:(fx+px)/2-nw/2,y:(fy+py)/2-h/2,r:(ang+360)%360});
+   const gd=cands({x:px,y:py,w:0,h:0,id:e.id},new Set([e.id]));guides({x:px,y:py,w:0,h:0},bx,by,gd.X,gd.Y)}
+  else{if(hx)w=Math.max(12,o.w+hx*lx);if(hy)h=Math.max(12,o.h+hy*ly);
+   const sx=hx*(w-o.w)/2,sy=hy*(h-o.h)/2,cx=o.x+o.w/2+sx*c-sy*s,cy=o.y+o.h/2+sx*s+sy*c;Object.assign(e,{w,h,x:cx-w/2,y:cy-h/2})}}
  if(e.type==='text')fitT(e);if(drag.m==='rs'){if(!e.r&&!ev.altKey&&!ev.metaKey)snapR(e,drag.h[0],drag.h[1]);else{drag.st=null;guides(e,null,null,[],[])}}doc.els.filter(q=>multi.has(q.id)).forEach(q=>paint(NODES.get(q.id),q));paint(NODES.get(e.id),e);place();sync();bdg(e)});
 const endDrag=()=>{if(drag&&drag.mv){commit();mvT=Date.now()}drag=null;$('gx').classList.remove('on');$('gy').classList.remove('on');$('gx')._o=$('gy')._o=0;$('sel').classList.remove('snap');$('bd').style.display='none';place()};listen(window,'pointerup',endDrag);listen(window,'pointercancel',endDrag);
 $('pn').addEventListener('input',ev=>{const i=ev.target,k=i.dataset.k;if(i.id==='stq'){stkQ=i.value;$('stg').innerHTML=stkList(stkTab,stkQ).map(x=>stkTile(x,'stk')).join('')||'<p class="hint">No stickers match.</p>';return}if(!k)return;if(i.type==='range')rfill(i);const num=i.type==='number'||i.type==='range',nv=num?parseFloat(i.value)||0:i.value;
@@ -780,12 +819,12 @@ if(k==='multi'){multiSelectMode=!multiSelectMode;b.setAttribute('aria-pressed',S
  else if(k==='photo'){fillT=sel&&ge(sel)&&ge(sel).type==='img'?sel:null;$('fl').click()}
  else if(k==='slide'){const on=!(slideOpen&&mode==='slide'&&!sel);sel=null;multi.clear();eraseMode=null;cropId=null;mode='slide';slideOpen=on;if(!isDesk())setFs(on);render();panel()}
  else{if(!(k==='lay'&&sel&&ge(sel)&&ge(sel).type==='img')){sel=null;multi.clear();eraseMode=null;cropId=null}mode=k;slideOpen=false;render();panel()}});
-function cands(e){const W=doc.W,H=doc.H,s0=SL(e)*W,X=[0,.5,1].map(f=>({v:s0+W*f,a:0,b:H})),Y=[0,.5,1].map(f=>({v:H*f,a:s0,b:s0+W}));
- doc.els.forEach(q=>{if(q.id===e.id||q.r)return;[0,.5,1].forEach(f=>{X.push({v:q.x+q.w*f,a:q.y,b:q.y+q.h});Y.push({v:q.y+q.h*f,a:q.x,b:q.x+q.w})});
+function cands(e,excl){const W=doc.W,H=doc.H,s0=SL(e)*W,X=[0,.5,1].map(f=>({v:s0+W*f,a:0,b:H})),Y=[0,.5,1].map(f=>({v:H*f,a:s0,b:s0+W}));
+ doc.els.forEach(q=>{if(q.id===e.id||(excl&&excl.has(q.id))||q.r)return;[0,.5,1].forEach(f=>{X.push({v:q.x+q.w*f,a:q.y,b:q.y+q.h});Y.push({v:q.y+q.h*f,a:q.x,b:q.x+q.w})});
   if(q.type==='img'){X.push({v:q.x+q.w+layGap,a:q.y,b:q.y+q.h,f:0},{v:q.x-layGap,a:q.y,b:q.y+q.h,f:1});Y.push({v:q.y+q.h+layGap,a:q.x,b:q.x+q.w,f:0},{v:q.y-layGap,a:q.x,b:q.x+q.w,f:1})}});
  return{X,Y}}
 const near=(C,pos,len,T,fs)=>{let b=null;fs.forEach(f=>C.forEach(c=>{if(c.f!=null&&c.f!==f)return;const d=c.v-(pos+len*f);if(Math.abs(d)<T&&(!b||Math.abs(d)<Math.abs(b.d)))b={c,f,d}}));return b};
-function snap(e){const T=8/z,R=18/z,{X,Y}=cands(e),s=drag.st||(drag.st={});
+function snap(e,excl){const T=8/z,R=18/z,{X,Y}=cands(e,excl),s=drag.st||(drag.st={});
  const pick=(C,pos,len,k)=>{const o=s[k],n=near(C,pos,len,T,[0,.5,1]);if(o){const d=o.c.v-(pos+len*o.f);if(Math.abs(d)<R)return n&&Math.abs(n.d)<Math.abs(d)-.5?n:{c:o.c,f:o.f,d}}return n};
  const bx=s.x=pick(X,e.x,e.w,'x'),by=s.y=pick(Y,e.y,e.h,'y');if(bx)e.x+=bx.d;if(by)e.y+=by.d;guides(e,bx,by,X,Y)}
 function snapR(e,hx,hy){const T=8/z,R=18/z,{X,Y}=cands(e),s=drag.st||(drag.st={}),corner=hx&&hy;
@@ -858,13 +897,13 @@ function setFs(on){$('ed').classList.toggle('fs-on',on);$('pg').setAttribute('ar
 $('pg').onclick=ev=>{ev.stopPropagation();setFs(!$('ed').classList.contains('fs-on'))};
 const zoomC=f=>{const r=$('cv').getBoundingClientRect();zoomAt(r.left+r.width/2,r.top+r.height/2,f)};$('zi').onclick=()=>zoomC(1.25);$('zo').onclick=()=>zoomC(.8);
 $('zf').onclick=()=>{if(!isDesk()){z=lastFit=fitZ();render();goSlide(cur,1);return}const a=fitZ(),b=fitZ(1),nr=Math.abs(z-a)<.004;z=nr&&doc.n>1?b:(nr||Math.abs(z-b)<.004)?1:a;render();goSlide(cur,1);lastFit=Math.abs(z-a)<.004?z:0};
- $('cv').addEventListener('scroll',()=>{if(!doc)return;syncVideoPlayback();const v=$('cv'),c=visibleSlide();if(c!==cur&&!sel){cur=c;btns();if(mode==='slide'||mode==='lay')panel()}});
+ $('cv').addEventListener('scroll',()=>{if(!doc)return;stickRulers();syncVideoPlayback();const v=$('cv'),c=visibleSlide();if(c!==cur&&!sel){cur=c;btns();if(mode==='slide'||mode==='lay')panel()}});
 $('bk').onclick=async()=>{if(drawMode)inkStop(false);if(!DBok&&hi>0&&!leave){leave=1;toast('Autosave isn’t available here. Tap again to discard edits.');setTimeout(()=>leave=0,3000);return}
  if(hi>0)await saveProj();if(fromHome){onExit();return}$('ed').classList.remove('on');document.body.style.overflow='';leave=0;syncVideoPlayback();recents()};
 $('blank').onclick=()=>openNb();
 listen(window,'keydown',ev=>{if(!$('ed').classList.contains('on')||/INPUT|TEXTAREA|SELECT/.test(ev.target.tagName))return;const e=sel&&ge(sel),m=ev.metaKey||ev.ctrlKey,many=multi.size>1;
  if(xbusy)return;
- if(drawMode){const k=ev.key;if(k==='Escape')inkStop(true);else if(m&&k.toLowerCase()==='z')undo(ev.shiftKey?1:-1);else if(!m&&(k==='['||k===']')){PEN.sz[PEN.t]=Math.max(1,Math.min(240,Math.round(penSz()*(k===']'?1.18:.85))));penSave();sync()}else if(!m&&/^[1-7]$/.test(k))act('inkt',BRUSH[+k-1][0]);else if(!m&&k.toLowerCase()==='e')act('inkt','er');else if(!m&&k.toLowerCase()==='p')act('inkt','pen');else return;ev.preventDefault();return}
+ if(drawMode){const k=ev.key;if(k==='Escape')inkStop(true);else if(m&&k.toLowerCase()==='z')undo(ev.shiftKey?1:-1);else if(!m&&(k==='['||k===']')){PEN.sz[PEN.t]=Math.max(1,Math.min(240,Math.round(penSz()*(k===']'?1.18:.85))));penSave();sync()}else if(!m&&new RegExp(`^[1-${BRUSH.length}]$`).test(k))act('inkt',BRUSH[+k-1][0]);else if(!m&&k.toLowerCase()==='e')act('inkt','er');else if(!m&&k.toLowerCase()==='p')act('inkt','pen');else return;ev.preventDefault();return}
  if(!m&&!e&&!many&&ev.key.toLowerCase()==='p'&&!ev.altKey){ev.preventDefault();inkStart();return}
  if(cutDraw){if(ev.key==='Escape')cutCancel();else if(ev.key==='Enter')cutApply();else if(/^(Backspace|Delete)$/.test(ev.key)||(m&&ev.key.toLowerCase()==='z'))act('cutundo');else return;ev.preventDefault();return}
  if(ev.key==='Escape'){slideOpen=false;sel=null;multi.clear();multiSelectMode=false;eraseMode=null;$('bar').querySelector('[data-b=multi]').setAttribute('aria-pressed','false');$('brushCursor').style.display='none';cropId=null;render();panel()}
@@ -1050,7 +1089,7 @@ async function openProj(id){const r=await idb('p','readonly',s=>s.get(id));if(!r
  for(const k in r.imgs){if(IMG.has(k))continue;const f=await idb('b','readonly',s=>s.get(id+'|'+k));if(f)await load(f,k)}
  d.els.forEach(e=>{if(e.k&&!IMG.has(e.k))e.k=null});startEd(d,id);Object.keys(r.imgs).forEach(k=>saved[id+'|'+k]=1);$('sv')&&($('sv').textContent='Saved')}
 /* import another draft's slides: scale to fit this canvas (centred), copy photo blobs, append at the end */
-let impL=null,impBusy=false;const AR_OF={1350:'4/5',1080:'1/1',1920:'9/16'};
+let impL=null,impBusy=false,tplBusy=false;const AR_OF={1350:'4/5',1080:'1/1',1920:'9/16'};
 async function impLoad(){const L=(await idb('p','readonly',s=>s.getAll()))||[];impL=L.filter(p=>p.id!==pid).sort((a,b)=>b.updated-a.updated);if(mode==='imp')panel()}
 async function importDraft(id){if(impBusy)return;const r=await idb('p','readonly',s=>s.get(id));if(!r)return toast('Couldn’t open that draft');
  impBusy=true;panel();toast('Importing…');
@@ -1062,6 +1101,17 @@ async function importDraft(id){if(impBusy)return;const r=await idb('p','readonly
   doc.els.push(...els);doc.bg.push(...bg);doc.n+=d.n;cur=at;sel=null;multi.clear();mode='slide';
   commit();render();panel();fsRender();goSlide(at);toast(`Added ${d.n} slide${d.n>1?'s':''} from “${r.name||'Untitled'}”${s<1||d.H<doc.H?' · fitted to this size':''}`)}
  catch(_){toast('Couldn’t import that draft')}finally{impBusy=false}}
+async function importTemplate(id){if(tplBusy)return;const t=TPL_ALL.find(q=>q.id===id);if(!t)return toast('Couldn’t find that template');
+ tplBusy=true;panel();toast('Adding template…');
+ try{const d=toDoc(t),at=cur+1,photos=d.els.filter(e=>e.src);
+  if(photos.length){let failed=0;await Promise.all(photos.map(async(e,i)=>{try{const r=await fetch(e.src,{mode:'cors'});if(!r.ok)throw new Error('fetch failed');const blob=await r.blob(),k=await load(new File([blob],`template-photo-${i+1}.jpg`,{type:blob.type||'image/jpeg'}));if(!k)throw new Error('decode failed');e.k=k;delete e.src}catch{failed++;delete e.src}}));if(failed)toast(`${failed} sample photo${failed===1?'':'s'} couldn’t load; add your own instead`)}
+  const sk=d.els.filter(e=>e.stk&&!e.k);if(sk.length)await Promise.all(sk.map(async e=>{try{e.k=await stkKey(SMAP.get(e.stk),e.col)}catch(_){}}));
+  d.els=d.els.filter(e=>!e.stk||e.k);
+  shift(at,d.n);
+  const els=d.els.map(e=>({...e,id:nid(),x:e.x+at*doc.W})),bg=t.m?Array(d.n).fill(t.bg):d.bg;
+  doc.els.push(...els);doc.bg.splice(at,0,...bg);doc.n+=d.n;mode='slide';sel=null;multi.clear();
+  commit();render();panel();fsRender();goSlide(at);toast(`Added ${d.n} slide${d.n>1?'s':''} from “${t.name}”`)}
+ catch(_){toast('Couldn’t add that template')}finally{tplBusy=false;panel()}}
 const ago=tm=>{const s=(Date.now()-tm)/1e3;return s<60?'Just now':s<3600?Math.floor(s/60)+' min ago':s<86400?Math.floor(s/3600)+' h ago':s<172800?'Yesterday':new Date(tm).toLocaleDateString(undefined,{month:'short',day:'numeric'})};
 async function recents(){const L=await idb('p','readonly',s=>s.getAll());$('rcs').hidden=false;if(!L||!L.length){$('rcn').textContent='';$('rec').innerHTML=`<p class="rempty">${DBok?'Your drafts appear here automatically as you edit.':'Drafts can’t be saved in this browser view, so use Back up after editing.'}</p>`;return}L.sort((a,b)=>b.updated-a.updated);$('rcn').textContent=`${L.length} saved`;
  $('rec').innerHTML=L.slice(0,14).map(p=>`<div class="rc"><button class="rcm" data-open="${p.id}">${p.thumb?`<img src="${p.thumb}" alt="">`:'<div class="ph0"></div>'}<b>${esc(p.name)}</b><small>${ago(p.updated)} · ${p.n} slide${p.n>1?'s':''} · ${esc(previewTargetName(p.previewTarget||'default'))}</small></button><button class="rcx" data-del="${p.id}" aria-label="Delete ${esc(p.name)}">×</button></div>`).join('')}

@@ -157,13 +157,27 @@ export function Slide({ template, index, photoWidth = 600 }) {
   )
 }
 
-// Card cover: the first slide, or the whole panorama for seamless designs.
+// Card cover: the whole panorama for seamless designs, a swipeable one-at-a-time strip for
+// regular multi-slide designs (so you can see how every slide looks without opening the
+// dialog), or just the first slide when there's only one.
 export const Cover = memo(function Cover({ template }) {
   if (template.m) {
     const [w, h] = template.ar.split('/')
     return (
       <div className="slide-cover" style={{ '--slide-ratio': `${w * template.m}/${h}` }}>
         {Array.from({ length: template.m }, (_, i) => <Slide key={i} template={template} index={i} photoWidth={500} />)}
+      </div>
+    )
+  }
+  const count = template.S.length
+  if (count > 1) {
+    return (
+      <div className="slide-cover slide-cover--scroll" style={{ '--slide-ratio': template.ar }}>
+        {template.S.map((_, i) => (
+          <div className="slide-cover__page" key={i}>
+            <Slide template={template} index={i} photoWidth={600} />
+          </div>
+        ))}
       </div>
     )
   }

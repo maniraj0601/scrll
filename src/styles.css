@@ -461,6 +461,32 @@ svg {
   aspect-ratio: auto;
 }
 
+.slide-cover--scroll {
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  cursor: grab;
+}
+
+.slide-cover--scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.slide-cover--scroll:active {
+  cursor: grabbing;
+}
+
+.slide-cover__page {
+  flex: 0 0 100%;
+  scroll-snap-align: start;
+}
+
+.slide-cover__page .slide-preview {
+  width: 100%;
+  height: 100%;
+}
+
 .slide-layer--text {
   display: flex;
   flex-direction: column;
@@ -929,6 +955,52 @@ svg {
   margin-left: var(--sidebar-w);
   padding: 34px var(--gutter) 72px;
   animation: view-in 320ms var(--ease) both;
+}
+
+.install-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 14px 20px 0 calc(var(--sidebar-w) + 20px);
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--surface-solid);
+  box-shadow: 0 0 0 1px var(--line), var(--shadow);
+}
+
+.install-banner__icon {
+  display: grid;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 10px;
+  color: #fff;
+  background: linear-gradient(145deg, #6ea8ff, #5263d9);
+}
+
+.install-banner__copy {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 1px;
+}
+
+.install-banner__copy small {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.install-banner__dismiss {
+  flex: none;
+  width: 32px;
+  height: 32px;
+}
+
+@media (max-width: 899px) {
+  .install-banner {
+    margin: 10px 12px 0;
+  }
 }
 
 @keyframes view-in {

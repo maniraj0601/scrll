@@ -70,11 +70,10 @@ export const LAYOUTS = [
 // one, or add more from Shapes → Lines & arrows. The grid is a starting point, not a sticker.
 {id:'x-grid',name:'Grid overlay',cat:'Overlay',ar:'4/5',tags:'grid lines composition rule of thirds architecture editable',S:[
  {bg:'#111',L:[I(0,0,100,100,G.peak,X('skyline')),
-  vline(33.3,4,96,{c:'rgba(255,255,255,.85)',lt:.35}),
-  vline(66.6,4,96,{c:'rgba(255,255,255,.85)',lt:.35}),
-  hline(33.3,4,96,{c:'rgba(255,255,255,.85)',lt:.35}),
-  hline(66.6,4,96,{c:'rgba(255,255,255,.85)',lt:.35}),
-  ...[[33.3,33.3],[66.6,33.3],[33.3,66.6],[66.6,66.6]].map(([px,py])=>R(px-1.1,py-1.1,2.2,2.2,'rgba(255,255,255,.9)',{circ:1,rd:'50%'})),
+  vline(33.3,0,100,{c:'rgba(255,255,255,.85)',lt:.35}),
+  vline(66.6,0,100,{c:'rgba(255,255,255,.85)',lt:.35}),
+  hline(33.3,0,100,{c:'rgba(255,255,255,.85)',lt:.35}),
+  hline(66.6,0,100,{c:'rgba(255,255,255,.85)',lt:.35}),
   T(4,1.5,70,3,'ALIGN TO YOUR SHOT',2.1,{c:'rgba(255,255,255,.75)',wt:600,ls:.2})]}]},
 {id:'x-postcard',name:'Postcard',cat:'Scrapbook',ar:'4/5',tags:'postcard travel handwritten blur',S:[
  {bg:'#222',L:[I(0,0,100,100,G.sea,X('santorini',{bl:8})),K('f-postcard',6,32,88),I(11.5,36.4,38.5,37,G.sea,X('santorini')),T(58.5,49,31,22,'wish you were\nhere. the sea\nis so blue x',2.8,{f:'h',c:'#3b3326',wt:600,lh:1.5})]}]},
@@ -156,5 +155,15 @@ export const LAYOUTS = [
 {id:'x-tokyo',name:'Stacked city',cat:'Type',ar:'4/5',tags:'big stacked letters white column city bebas',S:[
  {bg:'#ffffff',L:[I(38,0,62,100,G.night,X('times')),T(3,6,32,88,'N\nY\nC',30,{f:'bebas',a:'center',v:'c',c:'#111',lh:.95}),T(3,95,32,3,'40.7128° N',1.8,{a:'center',c:'#8e8e93',ls:.2})]}]},
 {id:'x-mosaic',name:'Mosaic',cat:'Photo dump',ar:'1/1',tags:'irregular mosaic grid six tiles',S:[
- {bg:'#ffffff',L:[I(1,1,57.5,61,G.sun,X('food')),I(59.5,1,39.5,30,G.sun,X('latte')),I(59.5,32,39.5,30,G.sun,X('brunch')),I(1,63,29,36,G.sun,X('friends2')),I(31,63,38,36,G.sun,X('cafe')),I(70,63,29,36,G.sun,X('poppy'))]}]}
+ {bg:'#ffffff',L:[I(1,1,57.5,61,G.sun,X('food')),I(59.5,1,39.5,30,G.sun,X('latte')),I(59.5,32,39.5,30,G.sun,X('brunch')),I(1,63,29,36,G.sun,X('friends2')),I(31,63,38,36,G.sun,X('cafe')),I(70,63,29,36,G.sun,X('poppy'))]}]},
+// Each photo is a plain rotated I() with a white border — not a single flattened collage
+// graphic — so swapping one in the editor fills its own tilted frame correctly: the crop/
+// zoom math happens in the frame's local (unrotated) space, then the whole frame rotates.
+{id:'x-scatter',name:'Scattered snapshots',cat:'Photo dump',ar:'4/5',tags:'tilted scattered prints casual pile rotated',S:[
+ {bg:'#f4f1ea',L:[
+  I(9,7,46,37,G.peak,X('valley',{r:-7,bw:1.6,bc:'#ffffff',rd:'2%'})),
+  I(47,15,46,37,G.sun,X('ginger',{r:6,bw:1.6,bc:'#ffffff',rd:'2%'})),
+  I(11,51,46,37,G.sun,X('map',{r:4,bw:1.6,bc:'#ffffff',rd:'2%'})),
+  I(45,57,46,37,G.rose,X('blueface',{r:-6,bw:1.6,bc:'#ffffff',rd:'2%'})),
+  T(0,93,100,4,'the whole roll',2.4,{a:'center',c:'#8a7f70',wt:500,f:'h'})]}]}
 ]

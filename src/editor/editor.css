@@ -645,13 +645,14 @@ svg.i{fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;strok
 /* Undo/redo: one grouped pill beside Back on every size (Freeform / Keynote placement).
    The zoom pill is zoom-only; its legacy history buttons stay in the DOM for state sync. */
 .zb .zh,.zb .zsep{display:none!important}
-.hg{display:flex;align-items:center;flex:none;padding:2px;border-radius:12px;background:var(--fill)}
+.hg{display:flex;align-items:center;flex:none;padding:2px;border-radius:12px;background:var(--card);box-shadow:0 0 0 1px var(--line),0 1px 2px rgba(0,0,0,.06)}
 .hg .hist{display:grid;place-items:center;width:38px;height:32px;padding:0;border:0;border-radius:10px;background:none;color:var(--ink);cursor:pointer;transition:background .15s,opacity .15s,transform .12s var(--ease)}
 .hg .hist+.hist{position:relative}.hg .hist+.hist::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:1px;background:var(--line)}
-.hg .hist svg{width:19px;height:19px}
+.hg .hist svg{width:21px;height:21px;stroke-width:2.1}
 .hg .hist:disabled{opacity:.3;cursor:default}
 .hg .hist:not(:disabled):active{transform:scale(.9)}
-@media(hover:hover){.hg .hist:not(:disabled):hover{background:var(--card);box-shadow:0 1px 3px rgba(0,0,0,.12)}}
+.hg .hist:not(:disabled){color:var(--acc)}
+@media(hover:hover){.hg .hist:not(:disabled):hover{background:var(--fill)}}
 @media(max-width:600px){.hg{padding:1px}.hg .hist{width:36px;height:32px}.hg .hist svg{width:20px;height:20px}}
 #dp .dph:disabled{opacity:.3;cursor:default}
 /* Draw cursor: ring in the ink colour plus a centre dot for precise placement at any size. */
