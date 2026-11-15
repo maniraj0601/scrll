@@ -633,17 +633,30 @@ svg {
 }
 
 .share-dialog__content {
-  padding: 24px;
+  position: relative;
+  padding: 28px 24px 24px;
 }
 
-.share-dialog__qr {
+.share-dialog__close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+}
+
+.share-dialog h2 {
+  margin: 2px 0 0;
+}
+
+.share-dialog__hero {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 18px;
-  margin-top: 4px;
-  padding: 18px;
-  border-radius: 16px;
-  background: var(--fill);
+  gap: 10px;
+  margin: 20px 0 22px;
+  padding: 22px;
+  border-radius: 20px;
+  background: linear-gradient(165deg, var(--accent-soft), var(--fill));
+  text-align: center;
 }
 
 .qr-code {
@@ -663,44 +676,28 @@ svg {
   fill: #111;
 }
 
-.share-dialog__code-label {
-  margin: 0 0 4px;
-  color: var(--muted);
-  font-size: 12px;
-}
-
 .share-dialog__code-value {
-  margin: 0;
+  margin: 4px 0 0;
   color: var(--ink);
   font-family: "Roboto Mono", ui-monospace, monospace;
-  font-size: 22px;
+  font-size: 28px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.14em;
 }
 
-.share-dialog__link {
-  display: flex;
-  gap: 8px;
-  margin: 4px 0 14px;
-}
-
-.share-dialog__link input {
-  flex: 1;
-  min-width: 0;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
+.share-dialog__hint {
+  margin: 0;
   color: var(--muted);
-  background: var(--fill);
-  font-size: 13px;
+  font-size: 12.5px;
 }
 
-.share-dialog__link .button {
-  flex: none;
+.share-dialog__actions {
+  display: flex;
+  gap: 10px;
 }
 
-.share-dialog .button--primary {
-  width: 100%;
+.share-dialog__actions .button {
+  flex: 1;
   justify-content: center;
 }
 
@@ -1891,6 +1888,17 @@ svg {
 
 .sticker-tile-wrap {
   position: relative;
+  /* This div, not the button inside it, is the actual grid item now, so it must own the
+     sizing (aspect-ratio + width) that CSS Grid used to give the <button> for free when the
+     button itself was the direct grid child. Without it the button shrinks to its content's
+     intrinsic width instead of the column width, collapsing every sticker to a tiny square. */
+  width: 100%;
+  aspect-ratio: 1;
+}
+
+.sticker-tile-wrap .sticker-tile {
+  width: 100%;
+  height: 100%;
 }
 
 .sticker-tile__fav {

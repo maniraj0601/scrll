@@ -4,8 +4,9 @@ import QrCode from './QrCode.jsx'
 import { codeFor } from '../lib/shareCode.js'
 import { templateUrl } from '../lib/links.js'
 
-// Scan the code, type the quick code into search, or copy the link — any of the three
-// opens this exact design directly, instead of scrolling the grid to find it again.
+// Scan the code or search it on Home to open this exact design directly, instead of
+// scrolling the grid to find it again. One hero QR + code, two clear actions — no raw URL
+// on screen, no separate rows competing for attention.
 export default function ShareDialog({ item, onClose }) {
   const dialogRef = useRef(null)
   const [copied, setCopied] = useState(false)
@@ -31,7 +32,7 @@ export default function ShareDialog({ item, onClose }) {
       setCopied(true)
       setTimeout(() => setCopied(false), 1600)
     } catch {
-      // Clipboard permission denied or unavailable — the link is still right there to select.
+      // Clipboard permission denied or unavailable — share sheet is still the fallback.
     }
   }
 
@@ -45,47 +46,35 @@ export default function ShareDialog({ item, onClose }) {
     >
       {item && (
         <div className="share-dialog__content">
-          <div className="template-dialog__header">
-            <div>
-              <p className="eyebrow">Share</p>
-              <h2 id="share-dialog-title">{item.name}</h2>
-            </div>
-            <button className="icon-button" type="button" onClick={onClose} aria-label="Close share">
-              <Icon name="close" size={18} />
-            </button>
+          <button className="icon-button share-dialog__close" type="button" onClick={onClose} aria-label="Close share">
+            <Icon name="close" size={18} />
+          </button>
+
+          <p className="eyebrow">Share</p>
+          <h2 id="share-dialog-title">{item.name}</h2>
+
+          <div className="share-dialog__hero">
+            <QrCode value={url} size={176} />
+            <p className="share-dialog__code-value">{code}</p>
+            <p className="share-dialog__hint">Scan it, or search this code on Home</p>
           </div>
 
-          <div className="share-dialog__qr">
-            <QrCode value={url} />
-            <div className="share-dialog__code">
-              <p className="share-dialog__code-label">Quick code</p>
-              <p className="share-dialog__code-value">{code}</p>
-            </div>
-          </div>
-
-          <p className="template-dialog__note">
-            Scan the code, search “{code}” on Home, or share the link — all three open this design
-            directly.
-          </p>
-
-          <div className="share-dialog__link">
-            <input readOnly value={url} onFocus={(event) => event.target.select()} aria-label="Shareable link" />
-            <button className="button button--secondary button--small" type="button" onClick={copy}>
+          <div className="share-dialog__actions">
+            <button className="button button--secondary" type="button" onClick={copy}>
               <Icon name={copied ? 'check' : 'copy'} size={16} />
-              {copied ? 'Copied' : 'Copy'}
+              {copied ? 'Copied!' : 'Copy link'}
             </button>
+            {typeof navigator !== 'undefined' && navigator.share && (
+              <button
+                className="button button--primary"
+                type="button"
+                onClick={() => navigator.share({ title: item.name, url }).catch(() => {})}
+              >
+                <Icon name="share" size={16} />
+                Share
+              </button>
+            )}
           </div>
-
-          {typeof navigator !== 'undefined' && navigator.share && (
-            <button
-              className="button button--primary"
-              type="button"
-              onClick={() => navigator.share({ title: item.name, url }).catch(() => {})}
-            >
-              <Icon name="share" size={16} />
-              Share link
-            </button>
-          )}
         </div>
       )}
     </dialog>
