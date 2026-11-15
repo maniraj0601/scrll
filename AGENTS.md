@@ -1,22 +1,43 @@
-# AGENTS.md
+# Repository instructions
 
-## Architecture
-React + Vite single-page app with one HTML entry (`index.html`). `npm run build` outputs `dist/`, which Netlify publishes (`netlify.toml` adds the SPA fallback and redirects old `/editor.html` links to `/edit`).
+## Read first
 
-- `/` → Studio home (`src/App.jsx`), with hash views:
-  - Home: create panel, recent drafts, and the regular carousel Templates.
-  - `#explore` (Layouts) and `#explore/stickers` (Stickers): `src/components/Explore.jsx`, with the Trending rail ids in `src/catalog/index.js`.
-  - `#drafts`.
-- `/edit?template=id | ?new=1&ar=4/5&n=3 | ?sticker=id | ?open=projectId` → editor (`template` accepts carousel or layout ids), lazy-loaded (`src/editor/Editor.jsx`).
+- [README](README.md): setup and product behavior.
+- [Architecture](docs/ARCHITECTURE.md): state, rendering, persistence, and media pipeline.
+- [Development guide](docs/DEVELOPMENT.md): change workflow, QA, troubleshooting, deployment.
+- [Editor-development skill](.github/skills/editor-development/SKILL.md): focused workflow for editor changes.
+- [Design principles](docs/DESIGN_PRINCIPLES.md): short UX defaults for new editor surface area. Read
+  before adding or changing editor UI. Full competitive evidence is in [docs/UI_UX_RESEARCH.md](docs/UI_UX_RESEARCH.md).
 
-## Key files
-- `src/main.jsx`: root router (`src/lib/router.js`, a tiny History-API store with `navigate`/`goBack`/`linkClick`).
-- `src/editor/engine.js`: the imperative editor engine. `mountEditor(el, { search, onExit, onMissing })` returns a dispose function. Register global listeners with `listen()` so they are removed on unmount.
-- `src/editor/markup.js` and `src/editor/editor.css`: the editor chrome and its styles.
-- `src/catalog/`: templates, layouts and gradients, shared by the home previews and the editor.
-- `src/lib/projects.js`: reads drafts from IndexedDB (`carousel-studio`; stores `p` and `b`). The schema must match the engine.
+Treat source code and `package.json` as authoritative when documentation disagrees. Update the relevant guide when changing an invariant.
 
-## Conventions and notes
-- CSS is route-scoped. Home uses `src/styles.css` and the editor uses `editor.css`; both are imported with `?inline` and injected via `useStyleSheet`. Don't import either globally, because they share selectors.
-- Drafts persist in the browser on the visitor's device. If cross-device sync is ever needed, use Netlify Database (and Netlify Identity for accounts) rather than adding a third-party backend.
-- Keep dependencies minimal.
+## Architecture boundaries
+
+- This is a **React + Vite SPA**, not the old single-file static app. `index.html` is the only HTML entry.
+- `src/main.jsx` routes `/` to `App.jsx` and `/edit` to lazy `src/editor/Editor.jsx`. Home has `#explore`, `#explore/stickers`, and `#drafts` views.
+- Editor JSX owns mounting/unmounting; `engine.js` owns imperative editor DOM, document state, history, tools, rendering, and storage. Do not let React and the engine mutate the same subtree.
+- `mountEditor(container, options)` returns a disposer. Register new global listeners with its `listen()` helper and release new timers, media, streams, and observers at the correct lifetime.
+- Home and editor CSS are imported with `?inline` and injected by `useStyleSheet`. Do not import them globally: their selectors overlap.
+- Catalog source lives in `src/catalog/`; Home and the editor must use the same definitions.
+
+## Change rules
+
+- Make small, focused changes. Do not reformat the dense engine or migrate unrelated systems during a feature fix.
+- Reuse existing helpers and components; add dependencies only for a clear requirement and keep the lockfile consistent.
+- Preserve Apple-inspired hierarchy, compact controls, responsive layout, keyboard access, focus states, and usable touch targets. Desktop must not regress for mobile improvements.
+- Pointer movement updates live geometry; commit history at the interaction boundary, not on every move.
+- Check screen-space versus document-space coordinates and zoom when editing interaction code.
+- A video uses element `type: 'img'`; identify actual media via `IMG.get(e.k)?.type`. `speed` is playback rate; `s` is crop zoom.
+- Keep editor playback, preview, trim duration, and video export consistent for media changes.
+- Drafts use IndexedDB `carousel-studio`, version 1, stores `p` and `b`. Preserve existing drafts and keep `src/lib/projects.js` consistent with the engine.
+- Drafts are device/origin-local. If cross-device sync is requested, prefer Netlify Database and Netlify Identity rather than introducing a third-party backend.
+- Do not add a test framework or committed test files unless requested. Use the build and focused browser verification; temporary QA scripts belong outside the repository.
+- Do not edit generated `dist/`, add credentials, or commit `.vercel/` or `node_modules/`.
+
+## Verification and delivery
+
+Available scripts: `npm run dev`, `npm run build`, `npm run preview`. There are currently **no test, lint, or formatter scripts**; do not report them as passing.
+
+Run `npm run build` for code changes and reproduce the affected behavior in the browser. Use the relevant rows in the [QA matrix](docs/DEVELOPMENT.md#validation). Check desktop and touch/mobile for UI changes; verify actual downloaded media for export changes, not just filenames or success messages.
+
+Preserve unrelated worktree changes. Report what changed, what was verified, and limitations. Do not commit, push, or deploy unless requested.
