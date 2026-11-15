@@ -9,6 +9,8 @@ import { EDITOR_MARKUP } from './markup.js'
 import { CAROUSELS } from '../catalog/carousels.js'
 import { LAYOUTS } from '../catalog/layouts.js'
 import { blobCp, G as GRADIENTS, scalCp, tearCp } from '../catalog/primitives.js'
+import { videoFormat, videoLayers, videoRange, videoSpeed, recordSlide } from './video-export.js'
+import { trimMarkup, syncTrim, bindTrim, trimValue } from './clip-trim.js'
 
 const ICON_MARKUP = editorIconMarkup()
 const iconSvg = (name, extra = '') => {
@@ -28,6 +30,7 @@ const CHROME = EDITOR_MARKUP.replace(/<i data-icon="([\w-]+)"([^>]*)><\/i>/g, (_
  * @returns {() => void} dispose
  */
 export function mountEditor(container, { search = '', hash = '', onExit = () => {}, onMissing = onExit } = {}) {
+  let disposed = false
   const tracked = []
   const listen = (target, type, fn, opts) => {
     target.addEventListener(type, fn, opts)
@@ -108,6 +111,7 @@ function grid(){const q=st.q.trim().toLowerCase(),L=TPL.filter(t=>!t.ex&&(st.ar=
  if(!L.length){G.className='grid';G.innerHTML='<p class="empty">No templates match. Try fewer filters.</p>';return}
  const B={};L.forEach(t=>(B[t.cat]=B[t.cat]||[]).push(t));G.className='groups';
  G.innerHTML=Object.keys(B).sort((a,b)=>(GORD.indexOf(a)+99)%99-(GORD.indexOf(b)+99)%99).map(c=>`<section class="gs"><div class="sec"><h2>${c}</h2><span>${B[c].length}</span></div><div class="grid">${B[c].map(cardHTML).join('')}</div></section>`).join('')}
+const MOD=/Mac|iPhone|iPad/.test(navigator.platform||navigator.userAgent)?'⌘':'Ctrl+';
 let tt;function toast(m){const e=$('toast');e.textContent=m;e.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>e.classList.remove('on'),2600)}
 $('q').addEventListener('input',e=>{st.q=e.target.value;grid()});
 document.querySelector('.fl').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const d=b.dataset;if(d.ar!=null)st.ar=d.ar;if(d.n!=null)st.n=d.n;if(d.c!=null)st.cat=d.c;fbar();grid()});
@@ -158,6 +162,8 @@ function toDoc(t,ar){
   if(l.t==='i')add({type:'img',x,y,w,h,g:gr(l.g,l.a),s:l.z||1,ox:l.px||0,oy:l.py||0,rd:fx,r:l.r||0,o:l.o??1,...(l.gs?{gs:l.gs}:{}),...(l.bl?{bl:l.bl}:{}),...(l.bw?{bw:l.bw/100*W,bc:l.bc||'#ffffff'}:{}),...(l.cp?{cp:l.cp,ck:l.ck||'',...(l.cq?{cq:{...l.cq}}:{})}:{}),...(l.photo?{src:photoURL(l.photo)}:{})});
   else if(l.t==='s'){const s=SMAP.get(l.id);if(s)add({type:'img',stk:s.id,...(s.tint?{col:l.col||s.col}:{}),x,y,w,h:w*(s.a||1),g:'rgba(0,0,0,0)',s:1,ox:0,oy:0,r:l.r||0,o:l.o??1})}
   else if(l.t==='r')add({type:'shape',x,y,w,h,fill:l.c,cp:l.cp||'',rd:fx,r:l.r||0});
+  else if(l.t==='l'){const vert=(l.r||0)===90,len=vert?l.w/100*H:w,px=vert?x-len/2:x,py=vert?y+len/2-8:y-8;
+   add({type:'shape',sk:'line',ln:l.ln||'solid',lt:(l.lt??0.5)/100*W,a0:l.a0?1:0,a1:l.a1?1:0,x:px,y:py,w:len,h:16,r:l.r||0,fill:l.c||'#ffffff',cp:'',o:l.o??1})}
   else if(l.t==='t')add({type:'text',x,y,w,h,text:l.text,fs:l.s/100*W,f:l.f||'n',wt:l.wt||700,c:l.c||'#fff',a:l.a||'left',v:l.v||'t',ls:l.ls||0,lh:l.lh||1.1,bg:l.bg||'',rd:fx,r:l.r||0,o:l.o??1,...(l.ts?{ts:l.ts,tblur:l.tb||8,tc:'#000000'}:{})});
   else{const w2=l.w/100*PW,h2=w2/.85,cx=ox+l.x/100*PW+w2/2,cy=l.y/100*H+h2/2,r=l.r||0,q=r*Math.PI/180,c=Math.cos(q),s=Math.sin(q),pd=.05*w2,cp=.22*h2,ih=h2-pd-cp;
    const put=(dx,dy,pw,ph,o)=>add({...o,w:pw,h:ph,x:cx+dx*c-dy*s-pw/2,y:cy+dx*s+dy*c-ph/2,r});
@@ -170,7 +176,7 @@ function geo(e,m){const b=Math.max(e.w/m.nw,e.h/m.nh)*e.s,dw=m.nw*b,dh=m.nh*b,cl
  return{dw,dh,ix:(e.w-dw)/2+cl(e.ox*e.w,Math.abs(dw-e.w)/2),iy:(e.h-dh)/2+cl(e.oy*e.h,Math.abs(dh-e.h)/2)}}
 const clipStart=(e,m)=>Math.max(0,Math.min(m.duration||0,Number.isFinite(e.vs)?e.vs:0)),
  clipEnd=(e,m)=>{const d=m.duration||0;if(!d)return 0;const start=clipStart(e,m),end=Number.isFinite(e.ve)?e.ve:d;return Math.max(start,Math.min(d,end))},
- timeLabel=t=>`${Math.floor(t/60)}:${String(Math.floor(t%60)).padStart(2,'0')}.${Math.floor(t%1*10)}`;
+ timeLabel=t=>{const n=Math.round(Math.max(0,t)*10);return`${Math.floor(n/600)}:${String(Math.floor(n/10)%60).padStart(2,'0')}.${n%10}`};
 let eraseMode=null,eraseSize=70,eraseDrag=null,cutDraw=null,slideOpen=false;
 let brushOp='erase';const ERM=document.createElement('canvas');
 function applyErase(c,e,w,h,k){if(!e.erase?.length)return;const cv=c.canvas;
@@ -257,13 +263,13 @@ function inkStop(keep){if(!drawMode)return;if(inkDrag){clearTimeout(inkDrag.hold
  if(keep&&id){sel=id;multi=new Set([id]);cur=SL(ge(id))}render();panel()}
 function dockSync(){const d=$('dp');d.classList.toggle('on',drawMode);if(!drawMode){d.innerHTML='';return}
  d.innerHTML=BRUSH.map(([k,l])=>`<button type="button" data-a="inkt" data-v="${k}" aria-label="${l}" data-tip="${l}" aria-pressed="${PEN.t===k}">${ic('b_'+k)}</button>`).join('')
-  +`<i class="sep" aria-hidden="true"></i><label class="dpc" data-tip="Colour" style="--c:${PEN.c}"><input type="color" value="${hex(PEN.c)}" aria-label="Ink colour"></label><button type="button" class="mo dpo" data-a="inkopt" aria-label="Brush options" aria-pressed="${$('ed').classList.contains('ink-opt')}">${ic('adjust')}</button><button type="button" class="dpd" data-a="inkdone">Done</button>`}
-function inkCur(ev){const c=$('brushCursor');if(!drawMode||ev.pointerType!=='mouse'){if(drawMode)c.style.display='none';return}const r=$('stage').getBoundingClientRect(),w=Math.max(penSz(),5/z),er=PEN.t==='er';
+  +`<i class="sep" aria-hidden="true"></i><label class="dpc" data-tip="Colour" style="--c:${PEN.c}"><input type="color" value="${hex(PEN.c)}" aria-label="Ink colour"></label><button type="button" class="mo dpo" data-a="inkopt" aria-label="Brush options" aria-pressed="${$('ed').classList.contains('ink-opt')}">${ic('adjust')}</button><i class="sep dph" aria-hidden="true"></i><button type="button" class="dph" data-a="hundo" aria-label="Undo" data-tip="Undo (${MOD}Z)"${hi<1?' disabled':''}>${ic('undo')}</button><button type="button" class="dph" data-a="hredo" aria-label="Redo" data-tip="Redo (${MOD}⇧Z)"${hi>=hist.length-1?' disabled':''}>${ic('redo')}</button><button type="button" class="dpd" data-a="inkdone">Done</button>`}
+function inkCur(ev){const c=$('brushCursor');if(!drawMode||ev.pointerType!=='mouse'){if(drawMode)c.style.display='none';return}const r=$('stage').getBoundingClientRect(),w=Math.max(penSz(),12/z),er=PEN.t==='er';
  c.className=er?'ink er':'ink';Object.assign(c.style,{display:'block',left:(ev.clientX-r.left)/z+'px',top:(ev.clientY-r.top)/z+'px',width:w+'px',height:w+'px',borderColor:er?'':PEN.c})}
 function inkHold(){const D=inkDrag;if(!D)return;clearTimeout(D.hold);D.hold=setTimeout(()=>{if(inkDrag!==D||D.line||D.st.p.length<10)return;const p=D.st.p;D.line=true;D.st.p=[p[0],p[1],+D.rx.toFixed(1),+D.ry.toFixed(1)];const e=ge(D.id);if(e)paint(NODES.get(e.id),e);navigator.vibrate?.(8)},600)}
 const glowSw=(cur,a)=>`<button type="button" class="auto" data-a="${a}" data-v="" aria-label="Glow matches ink colour" data-tip="Match ink" aria-pressed="${!cur}">A</button>`+GLC.map(c=>`<button type="button" data-a="${a}" data-v="${c}" style="background:${c}" aria-label="Glow ${c}" aria-pressed="${cur===c}"></button>`).join('');
 function syncBrush(){$('brushCursor').classList.toggle('restore',brushOp==='restore')}
-function brushCursorAt(ev,e){const curEl=$('brushCursor');if(!eraseMode||!e||!ev.target.closest?.('.e')||ev.target.closest('.e')?.dataset.id!==eraseMode){curEl.style.display='none';return}const r=$('stage').getBoundingClientRect();Object.assign(curEl.style,{display:'block',left:(ev.clientX-r.left)/z+'px',top:(ev.clientY-r.top)/z+'px',width:eraseSize+'px',height:eraseSize+'px'})}
+function brushCursorAt(ev,e){if(drawMode)return;const curEl=$('brushCursor');if(!eraseMode||!e||!ev.target.closest?.('.e')||ev.target.closest('.e')?.dataset.id!==eraseMode){curEl.style.display='none';return}const r=$('stage').getBoundingClientRect();Object.assign(curEl.style,{display:'block',left:(ev.clientX-r.left)/z+'px',top:(ev.clientY-r.top)/z+'px',width:eraseSize+'px',height:eraseSize+'px'})}
 function paint(d,e){const s=d.style,r=rad(e)+'px',chosen=multi.has(e.id)||e.id===sel;d.className='e'+(e.type==='text'?' tx':'')+(chosen?' s':'')+(chosen&&multi.size>1?' multi':'');
  s.left=e.x+'px';s.top=e.y+'px';s.width=e.w+'px';s.height=e.h+'px';s.transform=`rotate(${e.r}deg)`;s.opacity=e.o;s.mixBlendMode=e.type==='img'&&e.blend&&e.blend!=='source-over'?e.blend:'normal';
  if(e.type==='text'){s.font=`${e.wt} ${e.fs}px/${e.lh} ${FAM[e.f]}`;s.color=e.c;s.textAlign=e.a;s.letterSpacing=e.ls+'em';s.justifyContent={t:'flex-start',c:'center',e:'flex-end'}[e.v];s.background=e.bg||'none';s.borderRadius=r;s.textShadow=e.ts>0?`0 ${Math.max(1,e.ts*3)}px ${e.tblur||6}px rgba(${rgb(e.tc||'#000000').join(',')},${e.ts})`:'none';if(d.textContent!==e.text)d.textContent=e.text}
@@ -271,7 +277,7 @@ function paint(d,e){const s=d.style,r=rad(e)+'px',chosen=multi.has(e.id)||e.id==
  else if(e.type==='shape'){s.background=e.fill;s.clipPath=e.cp?`polygon(${e.cp})`:'none';s.borderRadius=r;s.boxShadow=e.sh?'0 6px 22px rgba(0,0,0,.28)':'none';s.filter='none'}
  else if(e.type==='draw'){s.background='none';s.clipPath='none';s.borderRadius='0';s.boxShadow='none';s.filter='none';inkPaint(d,e)}
  else{const m=e.k&&IMG.get(e.k),crop=cropId===e.id,sg=(e.k||'')+crop+(m&&m.type||'');
-  if(d._s!==sg){d._s=sg;d.textContent='';const mi=c=>{const i=m.type==='video'?document.createElement('video'):new Image();i.src=m.url;i.draggable=false;i.className=m.type==='video'?'vid':c;if(m.type==='video'){i.muted=true;i.playsInline=true;i.preload='auto';i.addEventListener('timeupdate',()=>{const from=clipStart(e,m),to=clipEnd(e,m);if(to>from&&i.currentTime>=to)i.currentTime=from;else if(i.currentTime<from)i.currentTime=from});i.addEventListener('ended',()=>{i.currentTime=clipStart(e,m);syncVideoPlayback()})}return i};if(m&&crop&&m.type!=='video')d.append(mi('gh'));const cl=document.createElement('div');cl.className='clip';if(m){cl.append(mi(''));const fx=document.createElement('i');fx.className='fx';cl.append(fx)}else{const ph=document.createElement('i');ph.className='img ph';const add=document.createElement('button');add.type='button';add.className='ph-add';add.setAttribute('aria-label','Add photo or video to this frame');add.innerHTML='<span>Add photo or video</span>';cl.append(ph,add)}d.append(cl)}
+  if(d._s!==sg){d._s=sg;d.querySelectorAll('video').forEach(v=>v.pause());d.textContent='';const mi=c=>{const i=m.type==='video'?document.createElement('video'):new Image();i.draggable=false;i.className=m.type==='video'?'vid':c;if(m.type==='video'){i.muted=true;i.defaultMuted=true;i.playsInline=true;i.preload='auto';i.addEventListener('timeupdate',()=>{const current=ge(e.id);if(!current||current.k!==e.k)return;const from=clipStart(current,m),to=clipEnd(current,m);if(to>from&&(i.currentTime>=to||i.currentTime<from))i.currentTime=from});['loadeddata','canplay','seeked','pause','ended'].forEach(event=>i.addEventListener(event,scheduleVideoPlayback))}i.src=m.url;return i};if(m&&crop&&m.type!=='video')d.append(mi('gh'));const cl=document.createElement('div');cl.className='clip';if(m){cl.append(mi(''));const fx=document.createElement('i');fx.className='fx';cl.append(fx)}else{const ph=document.createElement('i');ph.className='img ph';const add=document.createElement('button');add.type='button';add.className='ph-add';add.setAttribute('aria-label','Add photo or video to this frame');add.innerHTML='<span>Add photo or video</span>';cl.append(ph,add)}d.append(cl)}
   const c=d.querySelector('.clip');c.style.borderRadius=r;c.style.background=m?'none':e.g;c.style.outline=e.bw?`${e.bw}px solid ${e.bc||'#fff'}`:'none';c.style.outlineOffset=e.bw?-e.bw+'px':'0';
   const cutting=cutDraw?.id===e.id;c.style.clipPath=e.cp&&!cutting?`polygon(${e.cp})`:'none';let cb=c.querySelector('.cpb');
   if(e.cp&&e.bw&&!cutting){c.style.outline='none';if(!cb){cb=document.createElementNS('http://www.w3.org/2000/svg','svg');cb.setAttribute('class','cpb');cb.setAttribute('preserveAspectRatio','none')}c.append(cb);cb.setAttribute('viewBox',`0 0 ${e.w} ${e.h}`);cb.innerHTML=`<polygon points="${cpPts(e.cp,e.w,e.h)}" fill="none" stroke="${e.bc||'#fff'}" stroke-width="${e.bw*2}" stroke-linejoin="round"/>`}else cb?.remove();
@@ -279,9 +285,22 @@ function paint(d,e){const s=d.style,r=rad(e)+'px',chosen=multi.has(e.id)||e.id==
   if(m){const g=geo(e,m),fx=d.querySelector('.fx');if(fx)fx.style.background=fxBg(e);d.querySelectorAll('img,video').forEach(i=>{i.style.width=g.dw+'px';i.style.height=g.dh+'px';i.style.left=g.ix+'px';i.style.top=g.iy+'px';i.style.filter=filt(e);i.style.transform=`scale(${e.fx?-1:1},${e.fy?-1:1})`});
    const cl=d.querySelector('.clip'),raw=cl.querySelector('img:not(.gh)'),existing=cl.querySelector('.erase-preview');
    if(m.type==='image'&&e.erase?.length){const c=existing||document.createElement('canvas'),scale=Math.min(.65,700/Math.max(e.w,e.h));if(!existing){c.className='erase-preview';cl.append(c)}c.width=Math.max(1,Math.round(e.w*scale));c.height=Math.max(1,Math.round(e.h*scale));const ctx=c.getContext('2d');ctx.setTransform(scale,0,0,scale,0,0);ctx.save();ctx.beginPath();ctx.roundRect(0,0,e.w,e.h,rad(e));ctx.clip();drawF(ctx,m,g,e,e.w,e.h,scale,m.im);ctx.restore();if(raw)raw.style.display='none'}
-   else{existing?.remove();if(raw)raw.style.display=''}}}} 
+   else{existing?.remove();if(raw)raw.style.display=''}if(m.type==='video')scheduleVideoPlayback()}}}
 function visibleSlide(){const v=$('cv'),zm=$('zm').getBoundingClientRect();return Math.max(0,Math.min(doc.n-1,Math.floor((v.getBoundingClientRect().left+v.clientWidth/2-zm.left)/(doc.W*z))))}
-function syncVideoPlayback(){if(!doc)return;const active=!document.hidden&&$('ed').classList.contains('on')&&!$('pv').classList.contains('on'),slide=visibleSlide();doc.els.forEach(e=>{if(e.type!=='img'||!e.k)return;const m=IMG.get(e.k);if(m?.type!=='video')return;const video=NODES.get(e.id)?.querySelector('video');if(!video)return;if(active&&SL(e)===slide){const from=clipStart(e,m),to=clipEnd(e,m);if(to>from&&(video.currentTime<from||video.currentTime>=to))video.currentTime=from;if(video.paused)video.play().catch(()=>{if(!video.dataset.playError){video.dataset.playError='1';toast('This video format cannot play in the current browser.')}})}else video.pause()})}
+let videoSyncRaf=0;const videoStarting=new WeakSet();
+function scheduleVideoPlayback(){if(disposed||videoSyncRaf)return;videoSyncRaf=requestAnimationFrame(()=>{videoSyncRaf=0;syncVideoPlayback()})}
+function playVideo(e,active){const m=IMG.get(e.k),video=NODES.get(e.id)?.querySelector('video');if(!video)return;
+ if(!active){video.pause();return}video.muted=true;video.playsInline=true;video.playbackRate=videoSpeed(e);video.preservesPitch=true;
+ if(video.readyState<2||video.error)return;const from=clipStart(e,m),to=clipEnd(e,m);if(to<=from)return;
+ if(!video.seeking&&(video.currentTime<from||video.currentTime>=to||video.ended))video.currentTime=from;
+ if(!video.paused||videoStarting.has(video))return;videoStarting.add(video);
+ video.play().then(()=>{videoStarting.delete(video);delete video.dataset.playError},error=>{videoStarting.delete(video);
+  if(disposed||!video.isConnected)return;if(error?.name==='AbortError'){scheduleVideoPlayback();return}
+  if((error?.name==='NotSupportedError'||video.error)&&!video.dataset.playError){video.dataset.playError='1';toast('This video format cannot play in the current browser.')}})}
+function syncVideoPlayback(){if(!doc||disposed)return;if($('pv').classList.contains('on')){pvVideos();return}
+ const active=!document.hidden&&!xbusy&&$('ed').classList.contains('on'),v=$('cv').getBoundingClientRect(),s=$('stage').getBoundingClientRect(),
+  left=Math.max(0,(v.left-s.left)/z),right=Math.min(doc.n*doc.W,(v.right-s.left)/z),top=Math.max(0,(v.top-s.top)/z),bottom=Math.min(doc.H,(v.bottom-s.top)/z);
+ doc.els.forEach(e=>{if(e.type!=='img'||IMG.get(e.k)?.type!=='video')return;const b=boxOf(e);playVideo(e,active&&e.o!==0&&b.r>left&&b.l<right&&b.b>top&&b.t<bottom)})}
 function drawRulers(){if(!doc)return;const dpr=Math.max(1,window.devicePixelRatio||1),width=doc.n*doc.W*z,height=doc.H*z,target=48/Math.max(z,.01),power=10**Math.floor(Math.log10(target)),step=[1,2,5,10].map(v=>v*power).find(v=>v>=target)||10*power,minor=step/5;
  const paint=(id,length,vertical)=>{const canvas=$(`${id}`).querySelector('canvas'),ctx=canvas.getContext('2d'),cssW=vertical?22:length,cssH=vertical?length:22;canvas.style.width=cssW+'px';canvas.style.height=cssH+'px';canvas.width=Math.ceil(cssW*dpr);canvas.height=Math.ceil(cssH*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,cssW,cssH);ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--mute').trim()||'#8e8e93';ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--line').trim()||'rgba(60,60,67,.16)';ctx.font='10px -apple-system,BlinkMacSystemFont,sans-serif';ctx.textBaseline='middle';
   for(let point=0;point<=(vertical?doc.H:doc.n*doc.W);point+=minor){const pos=point*z,major=Math.abs(point/step-Math.round(point/step))<1e-6;ctx.beginPath();if(vertical){ctx.moveTo(cssW, pos);ctx.lineTo(cssW-(major?9:4),pos)}else{ctx.moveTo(pos,cssH);ctx.lineTo(pos,cssH-(major?9:4))}ctx.stroke();if(major){const label=String(point);if(vertical){ctx.save();ctx.translate(7,Math.min(cssH-3,pos+2));ctx.rotate(-Math.PI/2);ctx.textAlign='left';ctx.fillText(label,0,0);ctx.restore()}else{ctx.textAlign='left';ctx.fillText(label,pos+3,cssH/2)}}}};
@@ -291,9 +310,9 @@ function render(){const{W,H,n}=doc,st=$('stage');
  $('bgs').innerHTML=doc.mbg?`<div class="bg" style="left:0;top:0;width:${n*W}px;height:${H}px;background:${doc.mbg}"></div>`:doc.bg.map((b,i)=>`<div class="bg" style="left:${i*W}px;top:0;width:${W}px;height:${H}px;background:${b||'#fff'}"></div>`).join('');
  $('ov').innerHTML=Array.from({length:n-1},(_,i)=>`<div class="gl" style="left:${(i+1)*W}px"></div>`).join('')+Array.from({length:n},(_,i)=>`<div class="sn${i===cur?' on':''}" style="left:${i*W}px">${i+1}</div>`).join('');
  const box=$('els'),ids=new Set(doc.els.map(e=>e.id));
- NODES.forEach((d,id)=>{if(!ids.has(id)){d.remove();NODES.delete(id)}});
+ NODES.forEach((d,id)=>{if(!ids.has(id)){d.querySelectorAll('video').forEach(v=>v.pause());d.remove();NODES.delete(id)}});
  doc.els.forEach((e,i)=>{let d=NODES.get(e.id);if(!d){d=document.createElement('div');d.dataset.id=e.id;NODES.set(e.id,d)}if(box.children[i]!==d)box.insertBefore(d,box.children[i]||null);paint(d,e)});
- drawRulers();place();btns();requestAnimationFrame(syncVideoPlayback)}
+ drawRulers();place();btns();scheduleVideoPlayback()}
 function boxOf(q){const a=q.r*Math.PI/180,w=Math.abs(Math.cos(a))*q.w+Math.abs(Math.sin(a))*q.h,h=Math.abs(Math.sin(a))*q.w+Math.abs(Math.cos(a))*q.h,cx=q.x+q.w/2,cy=q.y+q.h/2;return{l:cx-w/2,t:cy-h/2,r:cx+w/2,b:cy+h/2}}
 function quickActions(e){const qa=$('qa');if(!e||drag||eraseDrag){qa.classList.remove('on');return}
  const m=e.type==='img'&&e.k&&IMG.get(e.k),crop=cropId===e.id,erasing=eraseMode===e.id,key=[e.id,e.type,m?m.type:'',crop,erasing,brushOp,!!e.fx].join('|');
@@ -315,7 +334,7 @@ function place(){const e=sel&&ge(sel),s=$('sel'),rp=$('rp'),items=[...multi].map
  const emp=e.type==='img'&&!e.k;rp.style.display=emp&&!drag?'grid':'none';
  if(emp)Object.assign(rp.style,{left:e.x+e.w/2+'px',top:e.y+e.h/2+'px',transform:'translate(-50%,-50%)'});
  quickActions(e)}
-function btns(){$('un').disabled=$('un2').disabled=hi<1;$('rd').disabled=$('rd2').disabled=hi>=hist.length-1;$('pg').querySelector('span').textContent=`${cur+1} / ${doc.n}`;$('tt1').textContent=`Slide ${cur+1} of ${doc.n}`;document.querySelectorAll('.fsb[data-go]').forEach((b,i)=>{b.classList.toggle('on',i===cur);b.parentElement.classList.toggle('on',i===cur)});fsTb();document.querySelectorAll('.sn').forEach((b,i)=>b.classList.toggle('on',i===cur))}
+function btns(){$('un').disabled=$('un2').disabled=hi<1;$('rd').disabled=$('rd2').disabled=hi>=hist.length-1;$('dp').querySelectorAll('button.dph').forEach(b=>b.disabled=b.dataset.a==='hundo'?hi<1:hi>=hist.length-1);$('pg').querySelector('span').textContent=`${cur+1} / ${doc.n}`;$('tt1').textContent=`Slide ${cur+1} of ${doc.n}`;document.querySelectorAll('.fsb[data-go]').forEach((b,i)=>{b.classList.toggle('on',i===cur);b.parentElement.classList.toggle('on',i===cur)});fsTb();document.querySelectorAll('.sn').forEach((b,i)=>b.classList.toggle('on',i===cur))}
 function commit(){hist=hist.slice(0,hi+1);hist.push(JSON.stringify(doc));if(hist.length>80)hist.shift();hi=hist.length-1;btns();saveSoon();fsSoon()}
 function undo(d){const j=hi+d;if(j<0||j>=hist.length)return;hi=j;doc=JSON.parse(hist[hi]);multi=new Set([...multi].filter(id=>ge(id)));if(sel&&!ge(sel))sel=multi.values().next().value||null;cur=Math.min(cur,doc.n-1);cropId=null;render();panel();pvSync();fsRender()}
 const padS=()=>{const c=getComputedStyle($('zw'));return[parseFloat(c.paddingLeft)||0,parseFloat(c.paddingTop)||0]};
@@ -415,7 +434,7 @@ const CUTS=[['none','None'],['tt','Torn top'],['tb','Torn bottom'],['ts','Torn s
   +(torn||k==='blob'?TG(TT('retear','shuffle',torn?'Re-tear':'Reshape',{tip:torn?'Tear the edge differently':'Try another blob'})):'')
   +(k==='pen'?TG(TT('cutdraw','pen','Redraw',{tip:'Draw a new freehand shape'})):'')
   +'<p class="hint">Cuts the photo into a shape. Layer a torn-paper sticker under a torn edge for a white paper rim.</p>')};
-function panel(){const e=sel&&ge(sel);let h='',key=mode;$('ed').classList.toggle('idle',!cutDraw&&!sel&&multi.size<2&&mode==='slide'&&!slideOpen);$('bar').querySelector('[data-b=slide]')?.setAttribute('aria-pressed',String(slideOpen&&mode==='slide'&&!sel));
+function panel(){const e=sel&&ge(sel);let h='',key=mode;$('ed').classList.toggle('idle',!cutDraw&&!sel&&multi.size<2&&mode==='slide'&&!slideOpen);$('ed').classList.toggle('has-sel',!!(sel||multi.size>1));$('bar').querySelector('[data-b=slide]')?.setAttribute('aria-pressed',String(slideOpen&&mode==='slide'&&!sel));
  const DEL=a=>IB(a,'del','Delete (⌫)',null,null,' dz');
  if(cutDraw&&cutDraw.id!==sel)cutEnd();
  if(cutDraw){const n=cutDraw.pts.length;key='cut';
@@ -443,7 +462,7 @@ function panel(){const e=sel&&ge(sel);let h='',key=mode;$('ed').classList.toggle
    +SEC('Position & size',`<div class="xy">${['x','y','w','h'].map(k=>`<label class="xf"><span>${k.toUpperCase()}</span><input type="number" data-k="${k}" aria-label="${{x:'X position',y:'Y position',w:'Width',h:'Height'}[k]}"></label>`).join('')}</div>${S('r','Rotate',-180,180,1)}`);
   else if(tab==='stk'){const sd=SMAP.get(e.stk);h+=SEC('Sticker',TG(TT('flipx','flx','Flip H',{on:!!e.fx,tip:'Flip horizontally'})+TT('flipy','fly','Flip V',{on:!!e.fy,tip:'Flip vertically'})+TT('front','front','Front',{tip:'Bring to front'})+TT('bottom','bottom','Back',{tip:'Send to back'}))+OP)+(sd?.tint?SEC('Colour',`<div class="stcol">${STCOL.map(c=>`<button type="button" data-a="stkre" data-v="${c}" style="background:${c}" aria-label="Colour ${c}" aria-pressed="${(e.col||sd.col)===c}"></button>`).join('')}</div>`):'')+SEC('Blend',`<label class="pr"><span>Mode</span><select data-k="blend">${[['source-over','Normal'],['multiply','Multiply'],['screen','Screen'],['overlay','Overlay'],['soft-light','Soft light'],['difference','Difference']].map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select></label>`)}
   else if(tab==='frame')h+=`<button type="button" class="add-hero" data-a="pick">${ic('photo')}<span><b>Add photo or video</b><small>Or drop a file onto the frame</small></span></button>`+SEC('Frame',FRT+FRS+OP)+CUTSEC(e)+SPC;
-  else if(tab==='media')h+=(vid&&m.duration>0?SEC('Clip',`<section class="video-trim" aria-label="Video clip range"><div class="video-trim__head"><b>Range</b><span>${timeLabel(m.duration)} total</span></div><div class="video-trim__range"><label for="video-start">Start</label><input id="video-start" type="range" data-k="vs" min="0" max="${Math.max(0,m.duration-.1)}" step="0.1" aria-label="Video clip start"><output data-trim="start">${timeLabel(clipStart(e,m))}</output></div><div class="video-trim__range"><label for="video-end">End</label><input id="video-end" type="range" data-k="ve" min="${Math.min(m.duration,clipStart(e,m)+.1)}" max="${m.duration}" step="0.1" aria-label="Video clip end"><output data-trim="end">${timeLabel(clipEnd(e,m))}</output></div><p class="video-trim__help">Loops while this slide is active. PNG exports stay still.</p></section>`):'')
+  else if(tab==='media')h+=(vid&&m.duration>0?SEC('Clip',trimMarkup(m.duration,timeLabel)):'')
    +SEC(vid?'Video':'Photo',TG(TT('pick','replace','Replace',{tip:'Replace with another photo or video'})+TT('crop','crop',vid?'Position':'Crop',{on:cropId===e.id,tip:vid?'Move video within frame':'Crop and move photo'})+TT('fit','fit','Fit',{tip:'Fit the whole media'})+TT('fill','fill','Fill',{tip:'Fill the frame'})+TT('flipx','flx','Flip H',{on:!!e.fx,tip:'Flip horizontally'})+TT('flipy','fly','Flip V',{on:!!e.fy,tip:'Flip vertically'})+(isImg?TT('erase','brush','Erase',{on:eraseMode===e.id,tip:eraseMode===e.id?'Finish erasing':'Erase part of the photo'}):'')+TT('unset','unset','Remove',{dz:1,tip:'Remove media and keep the frame'}))+S('s','Zoom',.2,6,.01)+(eraseMode===e.id?SG(`<button type="button" class="ib ico lbl" data-a="bop" data-v="erase" aria-pressed="${brushOp==='erase'}">${ic('brush')}Erase</button><button type="button" class="ib ico lbl" data-a="bop" data-v="restore" aria-pressed="${brushOp==='restore'}">${ic('unerase')}Restore</button>`)+S('_eraseSize','Brush',12,240,2)+TG(TT('eraseclr','reset','Restore all',{tip:'Bring back the whole photo'}))+`<p class="hint">${brushOp==='restore'?'Paint over erased areas to bring the photo back.':'Paint to reveal layers below. Switch to Restore to fix mistakes.'}</p>`:''))
    +CUTSEC(e)+SEC('Frame',FRT+FRS)+SPC;
   else if(tab==='adjust')h+=SEC('Filters',`<div class="fts">${['Original',...FPK].map(k=>{const P=k==='Original'?{}:FP[k],q=fxParams(P,1);return `<button class="ft" data-a="flt" data-v="${k}" data-tip="${k}" aria-pressed="${(e.fp||'Original')===k}"><span class="ftv"><img src="${thumbOf(m)}" alt="" style="filter:${filt(q)}"><i class="fx" style="background:${fxBg(q)}"></i></span><small>${k}</small></button>`}).join('')}</div>${e.fp?S('fi','Intensity',0,1,.01):''}`,AA('fltall','Apply this look to all photos'))
@@ -499,7 +518,7 @@ function sync(){const e=sel&&ge(sel);if(mode==='draw'&&!e){$('pn').querySelector
  if(k==='_gap')v=g?g.gap:layGap;else if(k==='_mar')v=g?g.mar:(layMar!=null?layMar:autoMar());else if(k==='_cor')v=g?g.rd:(layRd!=null?layRd:24);else if(k==='_eraseSize')v=eraseSize;else if(k==='_gl')v=Math.max(0,...(e?.st||[]).map(q=>q.t==='er'?0:q.g||0));else if(k==='_ca')v=e?.cq?.a??4;else if(k==='_csl')v=e?.cq?.sl??0;else{if(!e)return;v=e[k]??(k==='sh'||k==='ts'||k==='bw'?0:k==='tblur'?6:k==='tc'?'#000000':k==='blend'?'source-over':FD[k])}
  if(m?.type==='video'&&m.duration>0){const from=clipStart(e,m),to=clipEnd(e,m);if(k==='vs'){i.min='0';i.max=String(Math.max(0,to-.1))}else if(k==='ve'){i.min=String(Math.min(m.duration,from+.1));i.max=String(m.duration)}}
  i.value=i.type==='color'?hex(v):typeof v==='number'?Math.round(v*100)/100:v??'';if(i.type==='range')rfill(i)});
- if(m?.type==='video'){$('pn').querySelector('[data-trim=start]')?.replaceChildren(timeLabel(clipStart(e,m)));$('pn').querySelector('[data-trim=end]')?.replaceChildren(timeLabel(clipEnd(e,m)))}}
+ if(m?.type==='video'){const speed=$('pn').querySelector('[data-k=speed]');if(speed)speed.value=String(videoSpeed(e));syncTrim($('pn'),clipStart(e,m),clipEnd(e,m),m.duration,timeLabel,videoSpeed(e))}}
 
 /* slides */
 const inS=i=>doc.els.filter(e=>SL(e)===i),shift=(f,d)=>doc.els.forEach(e=>{if(e.x+e.w/2>=f*doc.W)e.x+=d*doc.W});
@@ -514,6 +533,8 @@ function act(a,v){const e=sel&&ge(sel),L=doc.els,fin=()=>{commit();render();pane
  switch(a){
  case'inkedit':inkStart();return;
  case'inkdone':inkStop(true);return;
+ case'hundo':return undo(-1);
+ case'hredo':return undo(1);
  case'inkt':PEN.t=v;penSave();dockSync();return panel();
  case'inkc':PEN.c=v;if(PEN.t==='er')PEN.t='pen';penSave();dockSync();return panel();
  case'inkgc':PEN.gc=v;if(!PEN.g&&PEN.t!=='neon')PEN.g=50;penSave();return panel();
@@ -660,6 +681,9 @@ $('stage').addEventListener('pointerdown',ev=>{if(!eraseMode||ev.button!==0)retu
 $('stage').addEventListener('pointermove',ev=>{const e=eraseMode&&ge(eraseMode);if(eraseDrag&&eraseDrag.pointerId===ev.pointerId){const target=ge(eraseDrag.id),p=target&&localImagePoint(target,ev.clientX,ev.clientY);if(target&&p&&p.x>=0&&p.x<=1&&p.y>=0&&p.y<=1){const pts=eraseDrag.stroke.pts,last=pts[pts.length-1];if(Math.hypot((p.x-last.x)*target.w,(p.y-last.y)*target.h)>eraseSize*.12)pts.push(p);paint(NODES.get(target.id),target)}
   const c=$('brushCursor'),r=$('stage').getBoundingClientRect();Object.assign(c.style,{display:'block',left:(ev.clientX-r.left)/z+'px',top:(ev.clientY-r.top)/z+'px',width:eraseSize+'px',height:eraseSize+'px'});return}brushCursorAt(ev,e)});
 ['pointerup','pointercancel','lostpointercapture'].forEach(type=>$('stage').addEventListener(type,ev=>{if(!eraseDrag||ev.pointerId!==eraseDrag.pointerId)return;eraseDrag=null;commit();mvT=Date.now()}));
+// Video clips can't bridge a swipe between carousel slides the way a bleeding photo can, so a
+// drag may not leave one straddling the boundary; other element types keep that freedom.
+function clampVideoToSlide(e,startX){if(e.type!=='img'||e.w>doc.W||IMG.get(e.k)?.type!=='video')return;const s=SL({x:startX,w:e.w})*doc.W;e.x=Math.max(s,Math.min(s+doc.W-e.w,e.x))}
 $('stage').addEventListener('pointerdown',ev=>{if(spaceDown||ev.button===1||ev.button===2)return;const h=ev.target.closest('[data-h]'),n=ev.target.closest('.e')||(sel&&ev.target.closest('#rp')?{dataset:{id:sel}}:null);let e=sel&&ge(sel);
  if(ev.shiftKey||multiSelectMode)return;
  if(h&&e&&multi.size<2)drag={m:h.dataset.h==='rot'?'rt':'rs',h:h.dataset.h.split(',').map(Number)};
@@ -667,8 +691,8 @@ $('stage').addEventListener('pointerdown',ev=>{if(spaceDown||ev.button===1||ev.b
  else return;
  Object.assign(drag,{x:ev.clientX,y:ev.clientY,e0:{...e},mv:0});try{ev.target.setPointerCapture(ev.pointerId)}catch(_){}ev.preventDefault()});
 listen(window,'pointermove',ev=>{if(!drag)return;const e=ge(sel);if(!e)return;const dx=(ev.clientX-drag.x)/z,dy=(ev.clientY-drag.y)/z,o=drag.e0;drag.mv=1;if(e.lg&&(drag.m==='mv'||drag.m==='rs')){delete e.lg;delete e.li}
- if(drag.m==='multi'){drag.items.forEach(q=>{const item=ge(q.id);if(item){item.x=q.x+dx;item.y=q.y+dy}})}
- else if(drag.m==='mv'){e.x=o.x+dx;e.y=o.y+dy;if(ev.altKey||ev.metaKey)guides(e,null,null,[],[]);else snap(e)}
+ if(drag.m==='multi'){drag.items.forEach(q=>{const item=ge(q.id);if(item){item.x=q.x+dx;item.y=q.y+dy;clampVideoToSlide(item,q.x)}})}
+ else if(drag.m==='mv'){e.x=o.x+dx;e.y=o.y+dy;if(ev.altKey||ev.metaKey)guides(e,null,null,[],[]);else snap(e);clampVideoToSlide(e,o.x)}
  else if(drag.m==='cp'){e.ox=o.ox+dx/o.w;e.oy=o.oy+dy/o.h}
  else if(drag.m==='rt'){const q=$('stage').getBoundingClientRect();let a=Math.atan2((ev.clientY-q.top)/z-(o.y+o.h/2),(ev.clientX-q.left)/z-(o.x+o.w/2))*180/Math.PI+90;if(a>180)a-=360;const m=Math.round(a/15)*15;e.r=Math.round(Math.abs(a-m)<4?m:a)}
  else{const q=o.r*Math.PI/180,c=Math.cos(q),s=Math.sin(q),lx=dx*c+dy*s,ly=-dx*s+dy*c,[hx,hy]=drag.h;let w=o.w,h=o.h;
@@ -676,7 +700,7 @@ listen(window,'pointermove',ev=>{if(!drag)return;const e=ge(sel);if(!e)return;co
    const k=Math.max(12/Math.min(o.w,o.h),1+(hx*lx*o.w+hy*ly*o.h)/(o.w*o.w+o.h*o.h));w=o.w*k;h=o.h*k;if(o.type==='text')e.fs=o.fs*k}
   else{if(hx)w=Math.max(12,o.w+hx*lx);if(hy)h=Math.max(12,o.h+hy*ly)}
   const sx=hx*(w-o.w)/2,sy=hy*(h-o.h)/2,cx=o.x+o.w/2+sx*c-sy*s,cy=o.y+o.h/2+sx*s+sy*c;Object.assign(e,{w,h,x:cx-w/2,y:cy-h/2})}
- if(e.type==='text')fitT(e);if(drag.m==='rs'&&!e.r&&!ev.altKey&&!ev.metaKey&&!(drag.h[0]&&drag.h[1]))snapR(e,drag.h[0],drag.h[1]);doc.els.filter(q=>multi.has(q.id)).forEach(q=>paint(NODES.get(q.id),q));paint(NODES.get(e.id),e);place();sync();bdg(e)});
+ if(e.type==='text')fitT(e);if(drag.m==='rs'){if(!e.r&&!ev.altKey&&!ev.metaKey)snapR(e,drag.h[0],drag.h[1]);else{drag.st=null;guides(e,null,null,[],[])}}doc.els.filter(q=>multi.has(q.id)).forEach(q=>paint(NODES.get(q.id),q));paint(NODES.get(e.id),e);place();sync();bdg(e)});
 const endDrag=()=>{if(drag&&drag.mv){commit();mvT=Date.now()}drag=null;$('gx').classList.remove('on');$('gy').classList.remove('on');$('gx')._o=$('gy')._o=0;$('sel').classList.remove('snap');$('bd').style.display='none';place()};listen(window,'pointerup',endDrag);listen(window,'pointercancel',endDrag);
 $('pn').addEventListener('input',ev=>{const i=ev.target,k=i.dataset.k;if(i.id==='stq'){stkQ=i.value;$('stg').innerHTML=stkList(stkTab,stkQ).map(x=>stkTile(x,'stk')).join('')||'<p class="hint">No stickers match.</p>';return}if(!k)return;if(i.type==='range')rfill(i);const num=i.type==='number'||i.type==='range',nv=num?parseFloat(i.value)||0:i.value;
  if(k==='_bg'){if(doc.mbg)doc.mbg=i.value;else doc.bg[cur]=i.value;render();return}
@@ -689,10 +713,14 @@ $('pn').addEventListener('input',ev=>{const i=ev.target,k=i.dataset.k;if(i.id===
  if(k==='_gap'||k==='_mar'||k==='_cor'){const e0=sel&&ge(sel),g=lgOf(e0);if(k==='_gap')layGap=nv;else if(k==='_mar')layMar=nv;else layRd=nv;if(g){g[k==='_gap'?'gap':k==='_mar'?'mar':'rd']=nv;reflow(e0.lg);render()}sync();return}
  const e=ge(sel);if(!e)return;
  if(k==='fi')Object.assign(e,fxParams(FP[e.fp]||{},nv),{fi:nv});
- else if(k==='vs'||k==='ve'){const m=e.type==='img'&&e.k&&IMG.get(e.k);if(m?.type==='video'&&m.duration>0){if(k==='vs')e.vs=Math.min(Math.max(0,nv),Math.max(0,clipEnd(e,m)-.1));else e.ve=Math.max(Math.min(m.duration,nv),Math.min(m.duration,clipStart(e,m)+.1));sync();const video=NODES.get(e.id)?.querySelector('video');if(video){video.currentTime=clipStart(e,m);if(video.paused)syncVideoPlayback()}}}
+ else if(k==='speed'){e.speed=videoSpeed({speed:Number(i.value)});const video=NODES.get(e.id)?.querySelector('video');if(video)video.playbackRate=e.speed}
+ else if(k==='vs'||k==='ve'){const m=e.type==='img'&&e.k&&IMG.get(e.k);if(m?.type==='video'&&m.duration>0){e[k]=trimValue(nv,k,clipStart(e,m),clipEnd(e,m),m.duration);sync();const video=NODES.get(e.id)?.querySelector('video');if(video){video.currentTime=clipStart(e,m);if(video.paused)syncVideoPlayback()}}}
  else{e[k]=nv;if(k==='lt'&&e.ln)lnFit(e);if(k in FD||k==='tn')e.fp='';if(e.lg&&(k==='x'||k==='y'||k==='w'||k==='h')){delete e.lg;delete e.li}}
  fitT(e);paint(NODES.get(e.id),e);place();sync()});
 $('pn').addEventListener('change',ev=>{const k=ev.target.dataset.k;if(k&&!/^_p(sz|op|sm|gl|c)$/.test(k)&&!(/^_(gap|mar|cor)$/.test(k)&&!lgOf(sel&&ge(sel))))commit()});
+bindTrim($('pn'),{listen,getRange:()=>{const e=sel&&ge(sel),m=e?.k&&IMG.get(e.k);return m?.type==='video'?{start:clipStart(e,m),end:clipEnd(e,m),duration:m.duration}:null},
+ onInput:(key,value)=>{const input=$('pn').querySelector(`.video-trim [data-k="${key}"]`);if(input){input.value=value;input.dispatchEvent(new Event('input',{bubbles:true}))}},
+ onCommit:commit});
 $('pn').addEventListener('click',ev=>{const b=ev.target.closest('[data-a]');if(b)act(b.dataset.a,b.dataset.v)});
 /* drag to place: press a shape, line, sticker or layout (or Text in the bar) and drop it on any slide.
    Mouse starts after a few px of travel; touch needs a short hold so the sheet can still scroll. */
@@ -760,9 +788,23 @@ const near=(C,pos,len,T,fs)=>{let b=null;fs.forEach(f=>C.forEach(c=>{if(c.f!=nul
 function snap(e){const T=8/z,R=18/z,{X,Y}=cands(e),s=drag.st||(drag.st={});
  const pick=(C,pos,len,k)=>{const o=s[k],n=near(C,pos,len,T,[0,.5,1]);if(o){const d=o.c.v-(pos+len*o.f);if(Math.abs(d)<R)return n&&Math.abs(n.d)<Math.abs(d)-.5?n:{c:o.c,f:o.f,d}}return n};
  const bx=s.x=pick(X,e.x,e.w,'x'),by=s.y=pick(Y,e.y,e.h,'y');if(bx)e.x+=bx.d;if(by)e.y+=by.d;guides(e,bx,by,X,Y)}
-function snapR(e,hx,hy){const T=8/z,{X,Y}=cands(e);let bx=null,by=null;
- if(hx){bx=near(X,hx<0?e.x:e.x+e.w,0,T,[hx<0?0:1]);if(bx){if(hx<0){e.x+=bx.d;e.w-=bx.d}else e.w+=bx.d}}
- if(hy){by=near(Y,hy<0?e.y:e.y+e.h,0,T,[hy<0?0:1]);if(by){if(hy<0){e.y+=by.d;e.h-=by.d}else e.h+=by.d}}
+function snapR(e,hx,hy){const T=8/z,R=18/z,{X,Y}=cands(e),s=drag.st||(drag.st={}),corner=hx&&hy;
+ const pick=(C,pos,h,len,k)=>{if(!h)return null;const f=h<0?0:1,min=corner?Math.max(12/e.w,12/e.h):12/len,
+  valid=c=>1+h*(c.v-pos)/len>=min,cs=C.filter(valid),n=near(cs,pos,0,T,[f]),o=s[k];
+  if(o&&valid(o.c)){const d=o.c.v-pos;if(Math.abs(d)<R)return n&&Math.abs(n.d)<Math.abs(d)-.5?n:{c:o.c,f,d}}return n};
+ let bx=pick(X,hx<0?e.x:e.x+e.w,hx,e.w,'x'),by=pick(Y,hy<0?e.y:e.y+e.h,hy,e.h,'y');
+ if(corner){
+  const axis=s.axis==='x'&&bx?'x':s.axis==='y'&&by?'y':bx&&(!by||Math.abs(bx.d/e.w)<=Math.abs(by.d/e.h))?'x':by?'y':null;
+  if(axis){const k=1+(axis==='x'?hx*bx.d/e.w:hy*by.d/e.h),w=e.w*k,h=e.h*k;
+   if(hx<0)e.x+=e.w-w;if(hy<0)e.y+=e.h-h;Object.assign(e,{w,h});if(e.type==='text')e.fs*=k}
+  s.axis=axis;
+  bx=hx?near(X,hx<0?e.x:e.x+e.w,0,.001,[hx<0?0:1]):null;
+  by=hy?near(Y,hy<0?e.y:e.y+e.h,0,.001,[hy<0?0:1]):null;
+ }else{
+  if(bx){if(hx<0){e.x+=bx.d;e.w-=bx.d}else e.w+=bx.d}
+  if(by){if(hy<0){e.y+=by.d;e.h-=by.d}else e.h+=by.d}
+ }
+ s.x=bx;s.y=by;
  guides(e,bx,by,X,Y)}
 function guides(e,bx,by,X,Y){const g=(id,on,css)=>{const n=$(id);if(on){if(!n._o){n.classList.remove('on');void n.offsetWidth}n.classList.add('on');Object.assign(n.style,css)}else n.classList.remove('on');n._o=on};
  let cx={},cy={};
@@ -811,6 +853,7 @@ $('cv').addEventListener('pointerdown',ev=>{if(ev.pointerType==='touch')tps.set(
 $('cv').addEventListener('pointermove',ev=>{if(!tps.has(ev.pointerId))return;tps.set(ev.pointerId,[ev.clientX,ev.clientY]);if(tps.size===2&&!drag){const[a,b]=[...tps.values()],d=Math.hypot(a[0]-b[0],a[1]-b[1]);if(pd)zoomAt((a[0]+b[0])/2,(a[1]+b[1])/2,d/pd);pd=d}});
 ['pointerup','pointercancel'].forEach(k=>$('cv').addEventListener(k,ev=>{tps.delete(ev.pointerId);if(tps.size<2)pd=0}));
 $('un').onclick=$('un2').onclick=()=>undo(-1);$('rd').onclick=$('rd2').onclick=()=>undo(1);
+$('un2').dataset.tip=`Undo (${MOD}Z)`;$('rd2').dataset.tip=`Redo (${MOD}⇧Z)`;
 function setFs(on){$('ed').classList.toggle('fs-on',on);$('pg').setAttribute('aria-expanded',String(on));$('pg').setAttribute('aria-label',on?'Hide slides':'Show slides');if(on)fsSoon()}
 $('pg').onclick=ev=>{ev.stopPropagation();setFs(!$('ed').classList.contains('fs-on'))};
 const zoomC=f=>{const r=$('cv').getBoundingClientRect();zoomAt(r.left+r.width/2,r.top+r.height/2,f)};$('zi').onclick=()=>zoomC(1.25);$('zo').onclick=()=>zoomC(.8);
@@ -820,6 +863,7 @@ $('bk').onclick=async()=>{if(drawMode)inkStop(false);if(!DBok&&hi>0&&!leave){lea
  if(hi>0)await saveProj();if(fromHome){onExit();return}$('ed').classList.remove('on');document.body.style.overflow='';leave=0;syncVideoPlayback();recents()};
 $('blank').onclick=()=>openNb();
 listen(window,'keydown',ev=>{if(!$('ed').classList.contains('on')||/INPUT|TEXTAREA|SELECT/.test(ev.target.tagName))return;const e=sel&&ge(sel),m=ev.metaKey||ev.ctrlKey,many=multi.size>1;
+ if(xbusy)return;
  if(drawMode){const k=ev.key;if(k==='Escape')inkStop(true);else if(m&&k.toLowerCase()==='z')undo(ev.shiftKey?1:-1);else if(!m&&(k==='['||k===']')){PEN.sz[PEN.t]=Math.max(1,Math.min(240,Math.round(penSz()*(k===']'?1.18:.85))));penSave();sync()}else if(!m&&/^[1-7]$/.test(k))act('inkt',BRUSH[+k-1][0]);else if(!m&&k.toLowerCase()==='e')act('inkt','er');else if(!m&&k.toLowerCase()==='p')act('inkt','pen');else return;ev.preventDefault();return}
  if(!m&&!e&&!many&&ev.key.toLowerCase()==='p'&&!ev.altKey){ev.preventDefault();inkStart();return}
  if(cutDraw){if(ev.key==='Escape')cutCancel();else if(ev.key==='Enter')cutApply();else if(/^(Backspace|Delete)$/.test(ev.key)||(m&&ev.key.toLowerCase()==='z'))act('cutundo');else return;ev.preventDefault();return}
@@ -857,25 +901,36 @@ function drawF(x,m,g,e,w,h,k,source){const oc=document.createElement('canvas');o
  if(e.vg>0){const gr2=c.createRadialGradient(ow/2,oh/2,0,ow/2,oh/2,Math.hypot(ow,oh)/2);gr2.addColorStop(.45,'rgba(0,0,0,0)');gr2.addColorStop(1,`rgba(0,0,0,${e.vg})`);c.fillStyle=gr2;c.fillRect(0,0,ow,oh)}
  applyErase(c,e,w,h,k);
  x.drawImage(oc,0,0,w,h)}
-function drawEl(x,e,k){x.save();x.translate(e.x+e.w/2,e.y+e.h/2);x.rotate(e.r*Math.PI/180);x.translate(-e.w/2,-e.h/2);x.globalAlpha=e.o;
+function drawEl(x,e,k,sources){x.save();x.translate(e.x+e.w/2,e.y+e.h/2);x.rotate(e.r*Math.PI/180);x.translate(-e.w/2,-e.h/2);x.globalAlpha=e.o;
  const w=e.w,h=e.h,P=()=>{x.beginPath();if(e.cp){poly(x,e.cp,w,h);x.closePath()}else x.roundRect(0,0,w,h,rad(e))};
  if(e.type==='shape'&&e.ln){if(e.sh){x.shadowColor='rgba(0,0,0,.3)';x.shadowBlur=6*k;x.shadowOffsetY=3*k}lnDraw(x,e)}
  else if(e.type==='shape'){P();if(e.sh){x.shadowColor='rgba(0,0,0,.28)';x.shadowBlur=22*k;x.shadowOffsetY=6*k}x.fillStyle=grd(x,e.fill,0,0,w,h);x.fill()}
  else if(e.type==='draw'){const{c,M}=inkCanvas(e,k);x.drawImage(c,-M,-M,c.width/k,c.height/k)}
- else if(e.type==='img'){P();const m=e.k&&IMG.get(e.k);if(m){x.clip();const g=geo(e,m),node=m.type==='video'?(NODES.get(e.id)?.querySelector('video')||m.video):m.im,source=m.type==='video'&&node.readyState<2?m.video:node;if(source.readyState===undefined||source.readyState>=2){x.globalCompositeOperation=e.blend||'source-over';if(hasF(e)||e.erase?.length)drawF(x,m,g,e,w,h,k,source);else{x.save();flp(x,e,g);x.drawImage(source,g.ix,g.iy,g.dw,g.dh);x.restore()}x.globalCompositeOperation='source-over'}if(e.bw){x.lineWidth=e.bw*2;x.lineJoin='round';x.strokeStyle=e.bc||'#fff';x.stroke()}}else{x.fillStyle=grd(x,e.g,0,0,w,h);x.fill()}}
+ else if(e.type==='img'){P();const m=e.k&&IMG.get(e.k);if(m){x.clip();const g=geo(e,m),node=m.type==='video'?(sources?.get(e.id)||NODES.get(e.id)?.querySelector('video')||m.video):m.im,source=m.type==='video'&&node.readyState<2?m.video:node;if(source.readyState===undefined||source.readyState>=2){x.globalCompositeOperation=e.blend||'source-over';if(hasF(e)||e.erase?.length)drawF(x,m,g,e,w,h,k,source);else{x.save();flp(x,e,g);x.drawImage(source,g.ix,g.iy,g.dw,g.dh);x.restore()}x.globalCompositeOperation='source-over'}if(e.bw){x.lineWidth=e.bw*2;x.lineJoin='round';x.strokeStyle=e.bc||'#fff';x.stroke()}}else{x.fillStyle=grd(x,e.g,0,0,w,h);x.fill()}}
  else{if(e.bg){P();x.fillStyle=e.bg;x.fill()}
   if(e.ts>0){const[r,g,b]=rgb(e.tc||'#000000');x.shadowColor=`rgba(${r},${g},${b},${Math.min(1,e.ts)})`;x.shadowBlur=(e.tblur??6)*k;x.shadowOffsetY=2*k}
   x.font=`${e.wt} ${e.fs}px ${FAM[e.f]}`;x.fillStyle=e.c;x.textBaseline='middle';x.textAlign=e.a;if('letterSpacing' in x)x.letterSpacing=e.ls*e.fs+'px';
   const L=wrap(x,e.text,w),lh=e.fs*e.lh,bh=L.length*lh,y0=e.v==='c'?(h-bh)/2:e.v==='e'?h-bh:0,px=e.a==='center'?w/2:e.a==='right'?w:0;L.forEach((t,i)=>x.fillText(t,px,y0+lh*(i+.5)));x.shadowColor='transparent';x.shadowBlur=0;x.shadowOffsetY=0}
  x.restore()}
-function draw(i,s,c){const{W,H,n}=doc;if(!c){c=document.createElement('canvas');c.width=Math.round(W*s);c.height=Math.round(H*s)}const x=c.getContext('2d');x.setTransform(1,0,0,1,0,0);x.clearRect(0,0,c.width,c.height);x.imageSmoothingQuality='high';x.scale(c.width/W,c.height/H);x.translate(-i*W,0);
+function draw(i,s,c,sources,layers=doc.els){const{W,H,n}=doc;if(!c){c=document.createElement('canvas');c.width=Math.round(W*s);c.height=Math.round(H*s)}const x=c.getContext('2d');x.setTransform(1,0,0,1,0,0);x.clearRect(0,0,c.width,c.height);x.imageSmoothingQuality='high';x.scale(c.width/W,c.height/H);x.translate(-i*W,0);
  if(doc.mbg){x.fillStyle=grd(x,doc.mbg,0,0,n*W,H);x.fillRect(0,0,n*W,H)}else{x.fillStyle=grd(x,doc.bg[i]||'#fff',i*W,0,W,H);x.fillRect(i*W,0,W,H)}
- doc.els.forEach(e=>{const cx=e.x+e.w/2,r=Math.hypot(e.w,e.h)/2;if(cx+r<i*W||cx-r>(i+1)*W)return;drawEl(x,e,c.width/W)});return c}
+ layers.forEach(e=>{const cx=e.x+e.w/2,r=Math.hypot(e.w,e.h)/2;if(cx+r<i*W||cx-r>(i+1)*W)return;drawEl(x,e,c.width/W,sources)});return c}
+function videoRenderer(i,c){const W=doc.W,H=doc.H,k=c.width/W,base=document.createElement('canvas'),runs=[base],buffers=[base];base.width=c.width;base.height=c.height;draw(i,k,base,null,[]);
+ const transform=x=>{x.setTransform(c.width/W,0,0,c.height/H,-i*c.width,0);x.imageSmoothingQuality='high'};let cache;
+ // Cache static runs once; blend modes still render against the actual layers below them.
+ doc.els.forEach(e=>{const b=boxOf(e);if(b.r<=i*W||b.l>=(i+1)*W||b.b<=0||b.t>=H)return;
+  if(IMG.get(e.k)?.type==='video'||e.blend&&e.blend!=='source-over'){runs.push(e);cache=null}
+  else{if(!cache){cache=document.createElement('canvas');cache.width=c.width;cache.height=c.height;runs.push(cache);buffers.push(cache)}const x=cache.getContext('2d');transform(x);drawEl(x,e,k)}});
+ return{render:sources=>{const x=c.getContext('2d');x.setTransform(1,0,0,1,0,0);x.clearRect(0,0,c.width,c.height);
+   runs.forEach(run=>{if(run instanceof HTMLCanvasElement){x.setTransform(1,0,0,1,0,0);x.drawImage(run,0,0)}else{transform(x);drawEl(x,run,k,sources)}})},
+  dispose:()=>buffers.forEach(b=>b.width=b.height=0)}}
 const slug=s=>(s||'carousel').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'carousel';
-let xsel=new Set(),xbusy=false;
+let xsel=new Set(),xbusy=false,xabort=null;
 const canvasBlob=(c,type='image/png',q)=>new Promise((resolve,reject)=>c.toBlob(blob=>blob?resolve(blob):reject(new Error('The browser could not render this slide. Try a smaller export size.')),type,q));
 /* export formats: PNG lossless, JPG/WebP smaller, PDF one multi-page file (LinkedIn document carousels) */
-const XFMT=[['png','PNG','image/png','png'],['jpg','JPG','image/jpeg','jpg'],['webp','WebP','image/webp','webp'],['pdf','PDF','application/pdf','pdf']];
+const XFMT=[['auto','Auto','',''],['video','Video','',''],['png','PNG','image/png','png'],['jpg','JPG','image/jpeg','jpg'],['webp','WebP','image/webp','webp'],['pdf','PDF','application/pdf','pdf']];
+const xVideos=i=>videoLayers(doc,i,IMG),xHasVideo=()=>Array.from({length:doc.n},(_,i)=>i).some(i=>xVideos(i).length),
+ xVideo=i=>xfmt==='video'||xfmt==='auto'&&xVideos(i).length>0;
 let xsz=(()=>{try{return localStorage.getItem('cs.xsz')||'best'}catch(_){return 'best'}})(),xopts=[];
 let xfmt=(()=>{try{const v=localStorage.getItem('cs.xfmt');return XFMT.some(f=>f[0]===v)?v:'png'}catch(_){return 'png'}})(),xqual=(()=>{try{return Math.min(100,Math.max(60,+localStorage.getItem('cs.xqual')||95))}catch(_){return 95}})();
 const xPrefs=()=>{try{localStorage.setItem('cs.xfmt',xfmt);localStorage.setItem('cs.xqual',String(xqual));localStorage.setItem('cs.xsz',xsz)}catch(_){}};
@@ -891,10 +946,15 @@ async function makePdf(pages,W,H){const enc=new TextEncoder(),parts=[],off=[];le
   obj(id+2,()=>{put(`<</Type/XObject/Subtype/Image/Width ${pg.w}/Height ${pg.h}/ColorSpace/DeviceRGB/BitsPerComponent 8/Filter/DCTDecode/Length ${pg.bytes.length}>>\nstream\n`);put(pg.bytes);put('\nendstream')})});
  const size=3+n*3,xs=len;put(`xref\n0 ${size}\n0000000000 65535 f \n`);for(let id=1;id<size;id++)put(String(off[id]).padStart(10,'0')+' 00000 n \n');
  put(`trailer\n<</Size ${size}/Root 1 0 R>>\nstartxref\n${xs}\n%%EOF`);return new Blob(parts,{type:'application/pdf'})}
-async function buildExport(indices,scale,onRow){const nm=slug(doc.name),files=[];
- if(xfmt==='pdf'){const pages=[];for(let n=0;n<indices.length;n++){onRow(indices[n],'Rendering');const c=draw(indices[n],scale),o=flatten(c);try{pages.push({w:o.width,h:o.height,bytes:new Uint8Array(await (await canvasBlob(o,'image/jpeg',xqual/100)).arrayBuffer())})}finally{c.width=c.height=o.width=o.height=0}onRow(indices[n],'Added')}
-  files.push(new File([await makePdf(pages,doc.W,doc.H)],`${nm}.pdf`,{type:'application/pdf'}));return files}
- const f=XFMT.find(v=>v[0]===xfmt);for(let n=0;n<indices.length;n++){const i=indices[n];onRow(i,'Rendering');const b=await slideBlob(i,scale);files.push(new File([b],`${nm}-${String(i+1).padStart(2,'0')}.${f[3]}`,{type:f[2]}));onRow(i,'Ready')}return files}
+async function buildExport(indices,scale,onRow,{signal,audio}={}){const name=(doc.name||'').trim(),nm=name&&!/^untitled(?: carousel)?$/i.test(name)?slug(name):'',files=[];
+ if(xfmt==='pdf'){const pages=[];for(let n=0;n<indices.length;n++){signal?.throwIfAborted();onRow(indices[n],'Rendering');const c=draw(indices[n],scale),o=flatten(c);try{pages.push({w:o.width,h:o.height,bytes:new Uint8Array(await (await canvasBlob(o,'image/jpeg',xqual/100)).arrayBuffer())})}finally{c.width=c.height=o.width=o.height=0}onRow(indices[n],'Added')}
+  files.push(new File([await makePdf(pages,doc.W,doc.H)],`${nm||'carousel'}.pdf`,{type:'application/pdf'}));return files}
+ for(let n=0;n<indices.length;n++){signal?.throwIfAborted();const i=indices[n];onRow(i,'Rendering');let b,ext,type;
+  if(xVideo(i)){const format=videoFormat(),c=document.createElement('canvas');c.width=Math.max(2,Math.round(doc.W*scale/2)*2);c.height=Math.max(2,Math.round(doc.H*scale/2)*2);let renderer;
+   try{renderer=videoRenderer(i,c);b=await recordSlide({layers:xVideos(i),media:IMG,canvas:c,render:renderer.render,format,audio,signal,onProgress:p=>onRow(i,`Encoding ${Math.floor(p*100)}%`),onFinalize:(p=0)=>onRow(i,`Finalizing ${Math.floor(85+p*15)}%`),onRetry:next=>onRow(i,`Retrying with ${next.label}`)});ext='mp4';type=b.type}
+   finally{renderer?.dispose();c.width=c.height=0}}
+  else{const fmt=xfmt==='auto'?'png':xfmt,f=XFMT.find(v=>v[0]===fmt);b=await slideBlob(i,scale,fmt);ext=f[3];type=f[2]}
+  files.push(new File([b],`${nm||'slide'}-${String(i+1).padStart(2,'0')}.${ext}`,{type}));onRow(i,'Ready')}return files}
 const canShareFiles=()=>{try{return !!navigator.canShare&&navigator.canShare({files:[new File([new Blob(['x'],{type:'image/png'})],'t.png',{type:'image/png'})]})}catch(_){return false}};
 function needsSlideSplit(){if(doc.mbg||Object.keys(doc.lg||{}).length)return true;return doc.els.some(e=>{const a=e.r*Math.PI/180,hw=(Math.abs(Math.cos(a))*e.w+Math.abs(Math.sin(a))*e.h)/2,left=e.x+e.w/2-hw,right=e.x+e.w/2+hw;return Array.from({length:doc.n-1},(_,i)=>(i+1)*doc.W).some(x=>left<x&&right>x)})}
 let reorderBusy=false;
@@ -905,37 +965,50 @@ async function reorderSlides(from,to){if(reorderBusy||from===to||from<0||to<0||f
  catch(error){toast(`Couldn’t reorder slides: ${error instanceof Error?error.message:'unexpected error'}`)}
  finally{reorderBusy=false;$('ed').classList.remove('reordering')}}
 function downloadBlob(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.style.display='none';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60_000)}
-const XDESC={png:['Best quality','Lossless, keeps transparency'],jpg:['Small files','Photos · great at 90%+'],webp:['Smallest','Modern web format'],pdf:['One document','LinkedIn carousel']};
-const xScale=()=>(xopts.find(o=>o.k===xsz)||xopts[0]).s;
+const XDESC={auto:['Photos + video','Matches each slide'],video:['Full layout','Playable video'],png:['Best quality','Lossless, keeps transparency'],jpg:['Small files','Photos · great at 90%+'],webp:['Smallest','Modern web format'],pdf:['One document','LinkedIn carousel']};
+const xAnimated=()=>[...xsel].some(xVideo),
+ xOptionScale=o=>xAnimated()?Math.min(o.s,3840/Math.max(doc.W,doc.H)):o.s,
+ xScale=()=>xOptionScale(xopts.find(o=>o.k===xsz)||xopts[0]);
 const xMB=b=>b>=1e6?(b/1e6).toFixed(1)+' MB':Math.max(1,Math.round(b/1e3))+' KB';
 // rough per-file estimate so the choice is informed before exporting
-function xEst(){const px=doc.W*doc.H*xScale()**2,q=xqual/100,bpp={png:1.3,jpg:.04+.26*q**6,webp:.025+.15*q**6,pdf:.04+.26*q**6}[xfmt];return px*bpp}
+function xEst(){const px=doc.W*doc.H*xScale()**2,q=xqual/100,bpp={auto:1.3,png:1.3,jpg:.04+.26*q**6,webp:.025+.15*q**6,pdf:.04+.26*q**6}[xfmt];return px*bpp}
 function syncExportSelection(){const count=xsel.size,all=count===doc.n,f=XFMT.find(v=>v[0]===xfmt),s=xScale(),W=Math.round(doc.W*s),H=Math.round(doc.H*s);
  document.querySelectorAll('#xpick [data-slide]').forEach(b=>{const i=+b.dataset.slide,on=xsel.has(i);b.disabled=xbusy;b.setAttribute('aria-pressed',String(on));b.setAttribute('aria-label',`Slide ${i+1}, ${on?'selected':'not selected'}`)});
  $('xcount').textContent=`${count} of ${doc.n} selected`;const t=$('xtoggle');t.textContent=all?'Deselect all':'Select all';t.disabled=xbusy;
- const pdf=xfmt==='pdf',files=pdf?(count?1:0):count,est=xEst()*(pdf?count:1);
- $('xsumb').textContent=count?(pdf?`1 PDF · ${count} page${count===1?'':'s'}`:`${count} ${f[1]} file${count===1?'':'s'}`):'No slides selected';
- $('xsums').textContent=count?`${W} × ${H} px · ≈ ${xMB(est)}${pdf?'':' each'}`:'Pick at least one slide';
- const d=$('xdownload');d.disabled=!count||xbusy;if(!xbusy)d.innerHTML=`${ic('download')}<span>${!count?'Download':pdf?'Download PDF':count===1?`Download ${f[1]}`:`Download ${count} ${f[1]}s`}</span>`;
- const sh=$('xshare');if(sh)sh.disabled=!count||xbusy;
+ const pdf=xfmt==='pdf',animated=xAnimated(),videos=[...xsel].filter(xVideo).length,est=xEst()*(pdf?count:1);
+ $('xsumb').textContent=count?(pdf?`1 PDF · ${count} page${count===1?'':'s'}`:xfmt==='auto'?`${videos} video${videos===1?'':'s'} · ${count-videos} PNG${count-videos===1?'':'s'}`:`${count} ${f[1]} file${count===1?'':'s'}`):'No slides selected';
+ $('xsums').textContent=count?`${animated?Math.round(W/2)*2:W} × ${animated?Math.round(H/2)*2:H} px${animated?' · 30 fps · original audio':` · ≈ ${xMB(est)}${pdf?'':' each'}`}`:'Pick at least one slide';
+ const d=$('xdownload');d.disabled=!count||xbusy;if(!xbusy)d.innerHTML=`${ic('download')}<span>${!count?'Download':pdf?'Download PDF':xfmt==='auto'||xfmt==='video'?`Download ${count===1?'file':`${count} files`}`:count===1?`Download ${f[1]}`:`Download ${count} ${f[1]}s`}</span>`;
+ $('xcancel').hidden=!xbusy;
+ const sh=$('xshare');if(sh){sh.disabled=!count||xbusy;sh.hidden=xbusy}
+ $('xqq').disabled=xbusy;
  document.querySelectorAll('#xfmts [data-f],#xsizes [data-z]').forEach(b=>b.disabled=xbusy)}
-async function exportSelection(share=false){if(xbusy||!xsel.size)return;xbusy=true;syncExportSelection();const indices=[...xsel].sort((a,b)=>a-b),scale=xScale(),status=$('xstatus'),f=XFMT.find(v=>v[0]===xfmt),pdf=xfmt==='pdf',d=$('xdownload'),lab=t=>{d.innerHTML=`<span>${t}</span>`};
+async function exportSelection(share=false){if(xbusy||!xsel.size)return;xbusy=true;xabort=new AbortController();syncExportSelection();cancelAnimationFrame(pvRaf);document.querySelectorAll('#ed video').forEach(v=>v.pause());const indices=[...xsel].sort((a,b)=>a-b),scale=xScale(),status=$('xstatus'),f=XFMT.find(v=>v[0]===xfmt),pdf=xfmt==='pdf',d=$('xdownload'),lab=t=>{d.innerHTML=`<span>${t}</span>`};let audio;
  const setStatus=(m,bad)=>{status.textContent=m;status.classList.toggle('bad',!!bad)},tile=i=>document.querySelector(`#xpick [data-slide="${i}"]`);let doneN=0;
- const row=(i,t)=>{const b=tile(i);if(!b)return;if(t==='Rendering'){b.dataset.st='busy';b.scrollIntoView({block:'nearest',inline:'nearest',behavior:'smooth'})}else{b.dataset.st='done';doneN++;d.style.setProperty('--xp',`${doneN/indices.length*100}%`);lab(`Preparing ${doneN}/${indices.length}`)}};
- indices.forEach(i=>{const b=tile(i);if(b)b.dataset.st='wait'});lab('Preparing…');
- try{await document.fonts.ready;setStatus('');
-  const files=await buildExport(indices,scale,row);
+ const progress=(i,state,value,label)=>{const b=tile(i),p=b?.querySelector('.xprogress');if(!p)return;b.dataset.st=state;
+  const ring=p.querySelector('.xprogress__ring');ring.style.setProperty('--progress',value);ring.setAttribute('aria-valuenow',value);ring.setAttribute('aria-valuetext',`${label}${state==='busy'||state==='done'?` · ${value}%`:''}`);
+  const v=p.querySelector('.xprogress__value');if(state==='done')v.innerHTML=ic('check');else v.textContent=state==='wait'?'—':state==='error'?'!':state==='cancelled'?'—':`${value}%`;
+  p.querySelector('.xprogress__label').textContent=label};
+ const row=(i,t)=>{const b=tile(i);if(!b)return;if(t==='Rendering'){progress(i,'busy',0,'Preparing');b.scrollIntoView({block:'nearest',inline:'nearest',behavior:'smooth'})}else if(t.startsWith('Retrying')){progress(i,'busy',0,t);setStatus(`Slide ${i+1}: ${t} at the selected resolution. Keep this tab visible.`);lab('Retrying…');d.style.setProperty('--xp',`${doneN/indices.length*100}%`)}else if(t.startsWith('Encoding')||t.startsWith('Finalizing')){const finalizing=t.startsWith('Finalizing'),value=Math.min(99,parseInt(t.split(' ')[1])||0);progress(i,'busy',value,finalizing?'Finishing MP4':'Exporting');lab(finalizing?'Finishing MP4…':'Exporting…');d.style.setProperty('--xp',`${(doneN+value/100)/indices.length*100}%`)}else{progress(i,'done',100,'100% · Ready');doneN++;d.style.setProperty('--xp',`${doneN/indices.length*100}%`);lab(`Preparing ${doneN}/${indices.length}`)}};
+ document.querySelectorAll('#xpick .xsel').forEach(b=>{delete b.dataset.st;b.querySelector('.xprogress')?.remove()});
+ indices.forEach(i=>{const b=tile(i);if(!b)return;const p=document.createElement('span');p.className='xprogress';p.innerHTML=`<span class="xprogress__ring" role="progressbar" aria-label="Slide ${i+1} export" aria-valuemin="0" aria-valuemax="100"><svg viewBox="0 0 40 40" aria-hidden="true"><circle class="xprogress__track" cx="20" cy="20" r="17" pathLength="100"/><circle class="xprogress__arc" cx="20" cy="20" r="17" pathLength="100"/></svg><span class="xprogress__value" aria-hidden="true"></span></span><span class="xprogress__label" aria-hidden="true"></span>`;b.querySelector('.xshot').append(p);progress(i,'wait',0,'Queued')});lab('Preparing…');
+ try{if(xAnimated()){const Audio=window.AudioContext||window.webkitAudioContext;if(Audio){audio=new Audio();await audio.resume()}}await document.fonts.ready;setStatus(xAnimated()?'Recording in real time. Keep this tab visible; you can cancel anytime.':'');
+  const files=await buildExport(indices,scale,row,{signal:xabort.signal,audio});xabort.signal.throwIfAborted();
   if(share){try{await navigator.share({files,title:doc.name||'Carousel'});setStatus('Shared.');toast('Shared')}catch(err){if(err?.name==='AbortError')setStatus('Share cancelled.');else throw err}}
-  else{for(let n=0;n<files.length;n++){downloadBlob(files[n],files[n].name);if(n<files.length-1)await new Promise(r=>setTimeout(r,300))}
-   const size=files.reduce((a,b)=>a+b.size,0),msg=pdf?`PDF with ${indices.length} page${indices.length>1?'s':''} saved · ${xMB(size)}`:`${files.length} ${f[1]}${files.length>1?'s':''} saved · ${xMB(size)}`;setStatus(msg+(files.length>1?'. If asked, allow multiple downloads.':''));toast(msg)}
- }catch(error){const message=error instanceof Error?error.message:'An unexpected export error occurred.';setStatus(`Export failed: ${message}`,true);toast(`Export failed: ${message}`)}
- finally{xbusy=false;d.style.removeProperty('--xp');setTimeout(()=>document.querySelectorAll('#xpick [data-st]').forEach(b=>delete b.dataset.st),1400);syncExportSelection()}
+  else{for(let n=0;n<files.length;n++){xabort.signal.throwIfAborted();downloadBlob(files[n],files[n].name);if(n<files.length-1)await new Promise(r=>setTimeout(r,300))}
+   const size=files.reduce((a,b)=>a+b.size,0),msg=pdf?`PDF with ${indices.length} page${indices.length>1?'s':''} saved · ${xMB(size)}`:`${files.length} ${xfmt==='auto'||xfmt==='video'?'file':f[1]}${files.length>1?'s':''} saved · ${xMB(size)}`;setStatus(msg+(files.length>1?'. If asked, allow multiple downloads.':''));toast(msg)}
+ }catch(error){const cancelled=error?.name==='AbortError';indices.forEach(i=>{const b=tile(i);if(b?.dataset.st==='busy')progress(i,cancelled?'cancelled':'error',+(b.querySelector('[aria-valuenow]')?.getAttribute('aria-valuenow')||0),cancelled?'Cancelled':'Failed');else if(b?.dataset.st==='wait')progress(i,'cancelled',0,cancelled?'Cancelled':'Not exported')});if(cancelled)setStatus('Export cancelled.');else{const message=error instanceof Error?error.message:'An unexpected export error occurred.';setStatus(`Export failed: ${message}`,true);toast(`Export failed: ${message}`)}}
+ finally{if(audio)await audio.close().catch(()=>{});xbusy=false;xabort=null;d.style.removeProperty('--xp');if(!disposed){if($('xdownload')){syncExportSelection();if($('pv').classList.contains('on'))pvVideos();else syncVideoPlayback()}}}
 }
-function xHint(){const many=xsel.size!==1,h=$('xhint');h.textContent={png:`Pixel-perfect and lossless${many?' — each slide is its own file':''}. Best for Instagram and further editing.`,jpg:`Much smaller ${many?'files':'file'} with no visible difference at 90%+. Transparent areas turn white.`,webp:'Smallest size at the same visual quality. Not every app accepts WebP uploads.',pdf:'All selected slides in one PDF, one page each. Upload to LinkedIn as a document carousel.'}[xfmt]+(h.dataset.x||'');
+function xHint(){const many=xsel.size!==1,h=$('xhint'),format=videoFormat(),selectedVideo=[...xsel].some(i=>xVideos(i).length);
+ h.textContent={auto:'Video slides become MP4 files; still slides stay lossless PNGs.',video:'Each selected slide becomes an MP4 file, including its complete layout. Still slides play for 5 seconds.',png:`Pixel-perfect and lossless${many?' — each slide is its own file':''}. Best for Instagram and further editing.`,jpg:`Much smaller ${many?'files':'file'} with no visible difference at 90%+. Transparent areas turn white.`,webp:'Smallest size at the same visual quality. Not every app accepts WebP uploads.',pdf:'All selected slides in one PDF, one page each. Upload to LinkedIn as a document carousel.'}[xfmt]
+ +(xAnimated()?` Trims and original audio are included. Shorter clips loop to the longest clip on each slide. High-quality video is re-encoded at 30 fps (up to 3840 px); it is not lossless. MP4 recovery may take an extra encoding step.${!format?' Video recording is unavailable here. Use a current Chrome, Edge or Safari.':''}`:selectedVideo?' Videos become still frames in this format. Choose Auto or Video to preserve motion and audio.':'')+(h.dataset.x||'');
  document.querySelectorAll('#xfmts [data-f]').forEach(b=>b.setAttribute('aria-checked',String(b.dataset.f===xfmt)));document.querySelectorAll('#xsizes [data-z]').forEach(b=>b.setAttribute('aria-checked',String(b.dataset.z===xsz)));
- $('xqbox').hidden=xfmt==='png';$('xqv').textContent=xqual+'%';syncExportSelection()}
+ document.querySelectorAll('#xsizes [data-z]').forEach(b=>{const o=xopts.find(o=>o.k===b.dataset.z);b.querySelector('small').textContent=`${Math.round(doc.W*xOptionScale(o))} × ${Math.round(doc.H*xOptionScale(o))} px`});
+ $('xqbox').hidden=['png','auto','video'].includes(xfmt);$('xqv').textContent=xqual+'%';syncExportSelection()}
 
-$('ex').onclick=()=>{const images=doc.els.filter(e=>e.type==='img'&&e.k),need=Math.max(1,...images.map(e=>{const m=IMG.get(e.k);return 1/(Math.max(e.w/m.nw,e.h/m.nh)*e.s)})),cap=Math.sqrt(CAP/(doc.W*doc.H)),auto=Math.min(need,cap),empty=doc.els.filter(e=>e.type==='img'&&!e.k).length,D=s=>`${Math.round(doc.W*s)} × ${Math.round(doc.H*s)} px`,limit=need>cap;
+$('ex').onclick=()=>{if(xbusy)return;const images=doc.els.filter(e=>e.type==='img'&&e.k),need=Math.max(1,...images.map(e=>{const m=IMG.get(e.k);return 1/(Math.max(e.w/m.nw,e.h/m.nh)*e.s)})),cap=Math.sqrt(CAP/(doc.W*doc.H)),auto=Math.min(need,cap),empty=doc.els.filter(e=>e.type==='img'&&!e.k).length,D=s=>`${Math.round(doc.W*s)} × ${Math.round(doc.H*s)} px`,limit=need>cap;
+ if(xHasVideo())xfmt='auto';else if(xfmt==='auto'||xfmt==='video')xfmt='png';
  xa=auto;xsel=new Set(Array.from({length:doc.n},(_,i)=>i));
  xopts=[{k:'1',s:1,l:'Standard',d:'Designed size, fastest upload'}];if(cap>=2)xopts.push({k:'2',s:2,l:'High · 2×',d:'Crisp on retina screens'});
  if(auto>1.01&&Math.abs(auto-2)>.05)xopts.push({k:'best',s:auto,l:'Maximum',d:'Keeps the full detail of your photos',r:1});else{const top=xopts[xopts.length-1];top.r=1;if(xsz==='best')xsz=top.k}
@@ -946,23 +1019,23 @@ $('ex').onclick=()=>{const images=doc.els.filter(e=>e.type==='img'&&e.k),need=Ma
  <div class="xbody"><section class="xleft" aria-labelledby="xslh"><div class="xlbl"><h3 id="xslh">Slides <small id="xcount"></small></h3><button type="button" class="xtg" id="xtoggle"></button></div>
   <div class="xgrid" id="xpick" role="group" aria-label="Select slides to export"></div></section>
  <section class="xright" aria-label="Export settings">
-  <div><div class="xlbl"><h3>File type</h3></div><div class="xfmts" id="xfmts" role="radiogroup" aria-label="File type">${XFMT.map(([k,l])=>`<button type="button" role="radio" data-f="${k}" aria-checked="${k===xfmt}"><b>${l}</b><span>${XDESC[k][0]}</span>${k==='png'?'<em>Best</em>':''}</button>`).join('')}</div></div>
+  <div><div class="xlbl"><h3>File type</h3></div><div class="xfmts" id="xfmts" role="radiogroup" aria-label="File type">${XFMT.map(([k,l])=>`<button type="button" role="radio" data-f="${k}" aria-checked="${k===xfmt}"><b>${l}</b><span>${XDESC[k][0]}</span></button>`).join('')}</div></div>
   <div><div class="xlbl"><h3>Size</h3></div><div class="xsizes" id="xsizes" role="radiogroup" aria-label="Export size">${xopts.map(o=>`<button type="button" role="radio" data-z="${o.k}" title="${o.d}" aria-checked="${o.k===xsz}"><i></i><span><b>${o.l}</b><small>${D(o.s)}</small></span>${o.r?'<em>Recommended</em>':''}</button>`).join('')}</div></div>
   <div class="xqual" id="xqbox"><div><h3 style="margin:0;font:600 13px var(--sf)">Quality</h3><input type="range" id="xqq" min="60" max="100" step="1" value="${xqual}" aria-label="Compression quality"><output id="xqv"></output></div><small><span>Smaller file</span><span>Sharper</span></small></div>
   <p class="xnote">${ic('info')}<span id="xhint" data-x="${limit?` Size is capped at ${D(cap)} to keep your browser stable.`:''}${empty?` ${empty} empty photo frame${empty>1?'s':''} will export as placeholder${empty>1?'s':''}.`:''}"></span></p>
   <p class="xstatus" id="xstatus" role="status" aria-live="polite"></p>
  </section></div>
- <div class="xfoot"><div class="xsum"><b id="xsumb"></b><small id="xsums"></small></div><div class="bt">${canShareFiles()?`<button class="ib" id="xshare" type="button">${ic('share')}<span>Share</span></button>`:''}<button class="ib pri" id="xdownload" type="button"></button></div></div>`;
+ <div class="xfoot"><div class="xsum"><b id="xsumb"></b><small id="xsums"></small></div><div class="bt"><button class="ib" id="xcancel" type="button" hidden>Cancel export</button>${canShareFiles()?`<button class="ib" id="xshare" type="button">${ic('share')}<span>Share</span></button>`:''}<button class="ib pri" id="xdownload" type="button"></button></div></div>`;
  const grid=$('xpick'),thumbScale=Math.min(240/doc.W,240/doc.H);
- for(let i=0;i<doc.n;i++){const b=document.createElement('button');b.type='button';b.className='xsel';b.dataset.slide=String(i);const shot=document.createElement('span');shot.className='xshot';shot.style.setProperty('--xar',`${doc.W} / ${doc.H}`);const canvas=draw(i,thumbScale),number=document.createElement('span');number.className='xnum';number.textContent=String(i+1);const check=document.createElement('span');check.className='xcheck';check.setAttribute('aria-hidden','true');check.innerHTML=ic('check');shot.append(canvas,number,check);b.append(shot);grid.append(b)}
+ for(let i=0;i<doc.n;i++){const b=document.createElement('button');b.type='button';b.className='xsel';b.dataset.slide=String(i);const shot=document.createElement('span');shot.className='xshot';shot.style.setProperty('--xar',`${doc.W} / ${doc.H}`);const canvas=draw(i,thumbScale),number=document.createElement('span');number.className='xnum';number.textContent=String(i+1);const check=document.createElement('span');check.className='xcheck';check.setAttribute('aria-hidden','true');check.innerHTML=ic('check');shot.append(canvas,number,check);const videos=xVideos(i);if(videos.length){const badge=document.createElement('span');badge.className='xmedia';let duration=0;try{duration=Math.max(...videos.map(e=>videoRange(e,IMG.get(e.k)).duration/videoSpeed(e)))}catch(_){}badge.textContent=`Video${duration?' · '+timeLabel(duration):''}`;shot.append(badge)}b.append(shot);grid.append(b)}
  $('xs').classList.add('on');xHint();setTimeout(()=>$('xdownload').focus({preventScroll:true}),60)};
 $('xb').addEventListener('click',ev=>{if(!$('xb').classList.contains('xp'))return;const slide=ev.target.closest('#xpick [data-slide]');if(slide&&!xbusy){const i=+slide.dataset.slide;xsel.has(i)?xsel.delete(i):xsel.add(i);xHint();return}const b=ev.target.closest('[data-x]');if(b){if(b.dataset.x==='close'&&!xbusy)$('xs').classList.remove('on');return}
- const t=ev.target.closest('button');if(!t||xbusy&&t.id!=='xdownload')return;
+ const t=ev.target.closest('button');if(!t)return;if(t.id==='xcancel'){xabort?.abort();return}if(xbusy)return;
  if(t.id==='xtoggle'){xsel=xsel.size===doc.n?new Set():new Set(Array.from({length:doc.n},(_,i)=>i));xHint()}
  else if(t.id==='xdownload')exportSelection();else if(t.id==='xshare')exportSelection(true);
  else if(t.dataset.f){xfmt=t.dataset.f;xPrefs();xHint()}else if(t.dataset.z){xsz=t.dataset.z;xPrefs();xHint()}});
 $('xb').addEventListener('input',ev=>{if(ev.target.id==='xqq'){xqual=+ev.target.value;$('xqv').textContent=xqual+'%';xPrefs();syncExportSelection()}});
-$('xb').addEventListener('keydown',ev=>{const f=ev.target.closest?.('#xfmt [data-f]');if(!f||!/^Arrow(Left|Right)$/.test(ev.key))return;ev.preventDefault();const i=XFMT.findIndex(v=>v[0]===xfmt),j=(i+(ev.key==='ArrowRight'?1:XFMT.length-1))%XFMT.length;xfmt=XFMT[j][0];xPrefs();xHint();$('xfmt').querySelector(`[data-f="${xfmt}"]`).focus()});
+$('xb').addEventListener('keydown',ev=>{const f=ev.target.closest?.('#xfmts [data-f]');if(xbusy||!f||!/^Arrow(Left|Right)$/.test(ev.key))return;ev.preventDefault();const i=XFMT.findIndex(v=>v[0]===xfmt),j=(i+(ev.key==='ArrowRight'?1:XFMT.length-1))%XFMT.length;xfmt=XFMT[j][0];xPrefs();xHint();$('xfmts').querySelector(`[data-f="${xfmt}"]`).focus()});
 $('xs').addEventListener('click',ev=>{if(ev.target.id==='xs'&&!xbusy)$('xs').classList.remove('on')});
 /* ===== history: autosave to IndexedDB (originals stored untouched) ===== */
 const DBp=new Promise(res=>{try{const r=indexedDB.open('carousel-studio',1);r.onupgradeneeded=()=>{r.result.createObjectStore('p',{keyPath:'id'});r.result.createObjectStore('b')};r.onsuccess=()=>{DBok=true;res(r.result)};r.onerror=r.onblocked=()=>res(null)}catch(e){res(null)}});
@@ -995,6 +1068,8 @@ async function recents(){const L=await idb('p','readonly',s=>s.getAll());$('rcs'
 $('rcs').addEventListener('click',async e=>{const o=e.target.closest('[data-open]'),x=e.target.closest('[data-del]');if(o)openProj(o.dataset.open);
  if(x){const id=x.dataset.del,r=await idb('p','readonly',s=>s.get(id));if(r)for(const k in r.imgs)await idb('b','readwrite',s=>s.delete(id+'|'+k));await idb('p','readwrite',s=>s.delete(id));recents();toast('Removed from recents')}});
 listen(window,'pagehide',()=>{if(doc&&hi>0)saveProj()});listen(document,'visibilitychange',syncVideoPlayback);
+listen(document,'pointerup',syncVideoPlayback,true);listen(document,'keydown',syncVideoPlayback,true);listen(window,'focus',scheduleVideoPlayback);
+new ResizeObserver(scheduleVideoPlayback).observe($('cv'));
 
 /* ===== platform previews ===== */
 let pvIndex=0;
@@ -1018,23 +1093,22 @@ $('pvs').addEventListener('click',e=>{const dot=e.target.closest('[data-pv-slide
  if(e.target.closest('#plk'))return likePost(0);if(e.target.closest('.car')&&!e.target.closest('.stg')){const t=Date.now();if(t-(openPv.t||0)<320)likePost(1);openPv.t=t}});
 $('pvs').addEventListener('input',e=>{const k=e.target.dataset.pv;if(!k)return;const v=e.target.textContent;if(k==='user'){doc.user=v;document.querySelectorAll('.cp b').forEach(b=>b.textContent=v)}else doc.cap=v;saveSoon()});
 $('pvb').onclick=openPv;$('pvex').onclick=()=>$('ex').click();
-$('pvx').onclick=()=>{pvSync();$('pv').classList.remove('on');cancelAnimationFrame(pvRaf);syncVideoPlayback()};
+$('pvx').onclick=closePv;
+function closePv(){pvSync();$('pv').classList.remove('on');cancelAnimationFrame(pvRaf);syncVideoPlayback()}
 /* preview canvases are stills; while a slide with video is showing, play the clip and repaint that slide every frame */
 let pvRaf=0;
-const pvVids=i=>doc.els.filter(e=>e.type==='img'&&e.k&&IMG.get(e.k)?.type==='video'&&SL(e)===i);
-function pvVideos(){cancelAnimationFrame(pvRaf);if(!doc)return;const on=$('pv').classList.contains('on')&&!document.hidden,i=pvIndex,vs=on?pvVids(i):[];
- doc.els.forEach(e=>{if(e.type!=='img'||!e.k||IMG.get(e.k)?.type!=='video')return;const v=NODES.get(e.id)?.querySelector('video');if(v&&!vs.includes(e))v.pause()});
+const pvVids=i=>videoLayers(doc,i,IMG);
+function pvVideos(){cancelAnimationFrame(pvRaf);if(!doc||disposed)return;const on=$('pv').classList.contains('on')&&!document.hidden&&!xbusy,i=pvIndex,vs=on?pvVids(i):[];
+ doc.els.forEach(e=>{if(e.type==='img'&&IMG.get(e.k)?.type==='video')playVideo(e,vs.includes(e))});
  if(!vs.length)return;
- vs.forEach(e=>{const v=NODES.get(e.id)?.querySelector('video'),m=IMG.get(e.k);if(!v)return;v.muted=true;v.playsInline=true;const a=clipStart(e,m),b=clipEnd(e,m);if(b>a&&(v.currentTime<a||v.currentTime>=b))v.currentTime=a;if(v.paused)v.play().catch(()=>{})});
- const tick=()=>{if(!$('pv').classList.contains('on')||pvIndex!==i)return;
-  vs.forEach(e=>{const v=NODES.get(e.id)?.querySelector('video'),m=IMG.get(e.k);if(!v)return;const a=clipStart(e,m),b=clipEnd(e,m);if(b>a&&v.currentTime>=b-.03)v.currentTime=a});
+ const tick=()=>{if(disposed||document.hidden||xbusy||!$('pv').classList.contains('on')||pvIndex!==i)return;
+  vs.forEach(e=>{const v=NODES.get(e.id)?.querySelector('video'),m=IMG.get(e.k);if(!v||v.seeking)return;const a=clipStart(e,m),b=clipEnd(e,m);if(b>a&&v.currentTime>=b-.03)v.currentTime=a});
   const c=document.querySelector(`#pvs .psl[data-i="${i}"] canvas`);if(c)draw(i,0,c);pvRaf=requestAnimationFrame(tick)};
  pvRaf=requestAnimationFrame(tick)}
 function pvAmbient(){const c=$('wpbg');if(!c||!doc)return;const s=Math.min(.12,160/doc.W);if(c.width!==Math.round(doc.W*s)){c.width=Math.round(doc.W*s);c.height=Math.round(doc.H*s)}draw(pvIndex,s,c)}
-listen(document,'visibilitychange',()=>{if($('pv').classList.contains('on'))pvVideos()});
 $('pvtarget').onchange=()=>{doc.previewTarget=$('pvtarget').value;commit();pvSync();openPv()};
 $('pvt').onclick=()=>{pvDark=!pvDark;document.querySelector('.ig:not(.story)')?.classList.toggle('dk',pvDark);document.querySelector('.facebook-preview')?.classList.toggle('dk',pvDark)};
-listen(window,'keydown',e=>{if(e.key==='Escape'&&$('pv').classList.contains('on'))$('pv').classList.remove('on')});
+listen(window,'keydown',e=>{if(e.key==='Escape'&&$('pv').classList.contains('on'))closePv()});
 
 /* ===== tooltips: hover, keyboard focus and touch long-press ===== */
 /* ---- select popover: native lists on macOS open centred over the field (even above the window), so desktop gets an anchored menu ---- */
@@ -1198,6 +1272,10 @@ else if(requestedOpen)DBp.then(()=>idb('p','readonly',q=>q.get(requestedOpen))).
   /* ---- end legacy engine ---- */
 
   return function dispose() {
+    disposed = true
+    cancelAnimationFrame(videoSyncRaf)
+    cancelAnimationFrame(pvRaf)
+    xabort?.abort()
     clearTimeout(saveT)
     if (doc && hi > 0) saveProj()
     if (drawMode) inkStop(false)
