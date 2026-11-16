@@ -216,6 +216,7 @@ async function recordAttempt({ layers, media, canvas, render, format, audio, sig
     silence.offset.value = 0;
     silence.connect(destination);
     silence.start();
+    const audible = Math.max(1, layers.filter(e => !e.mute).length);
     for (const e of layers) {
       signal.throwIfAborted();
       const m = media.get(e.k), range = videoRange(e, m), video = document.createElement('video');
@@ -223,13 +224,13 @@ async function recordAttempt({ layers, media, canvas, render, format, audio, sig
       video.playsInline = true;
       video.playbackRate = videoSpeed(e);
       video.preservesPitch = true;
-      clips.push({ video, ...range });
+      clips.push({ video, restarting: false, ...range });
       await mediaEvent(video, 'loadeddata', signal, () => { video.src = m.url; video.load(); });
       video.playbackRate = videoSpeed(e);
       if (range.start > 0) await mediaEvent(video, 'seeked', signal, () => { video.currentTime = range.start; });
       const node = audio.createMediaElementSource(video);
       const gain = audio.createGain();
-      gain.gain.value = 1 / layers.length;
+      gain.gain.value = e.mute ? 0 : 1 / audible;
       node.connect(gain);
       gain.connect(destination);
       nodes.push(node, gain);
@@ -260,20 +261,25 @@ async function recordAttempt({ layers, media, canvas, render, format, audio, sig
         if (performance.now() - start < duration * 1000 - 100) { fail(encodingError()); return; }
         settled = true; durationMs = performance.now() - start; clean(); resolve();
       };
-      const frame = async () => {
+      const frame = () => {
         try {
           if (settled) return;
           signal.throwIfAborted();
           const elapsed = (performance.now() - start) / 1000;
           if (elapsed >= duration) { recorder.stop(); return; }
+          // Restarting a looping clip means seeking it, which can take a while on a large/4K
+          // source — run it in the background instead of awaiting it here. Blocking this tick
+          // would freeze the ENTIRE canvas (every layer, not just the looping clip) until the
+          // seek resolves, which is what produced the severe stutter/freezes in longer exports.
           for (const clip of clips) {
-            if (clip.video.currentTime >= clip.end - .015 || clip.video.ended) {
-              await mediaEvent(clip.video, 'seeked', signal, () => { clip.video.currentTime = clip.start; });
-              await clip.video.play();
+            if (!clip.restarting && (clip.video.currentTime >= clip.end - .015 || clip.video.ended)) {
+              clip.restarting = true;
+              mediaEvent(clip.video, 'seeked', signal, () => { clip.video.currentTime = clip.start; })
+                .then(() => clip.video.play())
+                .catch(error => { if (signal.aborted) return; fail(error); })
+                .finally(() => { clip.restarting = false; });
             }
           }
-          signal.throwIfAborted();
-          if (settled) return;
           render(sources);
           onProgress(Math.min(1, elapsed / duration));
           timer = setTimeout(frame, 1000 / 30);

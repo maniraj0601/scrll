@@ -9,7 +9,7 @@ import {
   Image, ImageOff, ImagePlus, Images, Import, Layers, LayoutDashboard, LayoutTemplate, Maximize, Maximize2, MessageCircle, Minimize2, Minus,
   Moon, PanelRight, PictureInPicture2, Play, Plus, Redo2, Replace, RotateCcw, RotateCw, Rows2, Search, Send, SendToBack, Shapes,
   SlidersHorizontal, Square, SquareDashed, SquareDashedMousePointer, SquarePlus, TextAlignCenter, TextAlignEnd,
-  TextAlignStart, Trash2, Scissors, Lasso, Shuffle, PenTool, Pen, PencilLine, Highlighter, Paintbrush, Paintbrush2, SprayCan, Feather, Zap, Sticker, Compass, Pencil, RotateCcwSquare, Type, Undo2, Ungroup, Upload, X,
+  TextAlignStart, Trash2, Scissors, Lasso, Shuffle, PenTool, Pen, PencilLine, Highlighter, Paintbrush, Paintbrush2, SprayCan, Feather, Zap, Sticker, Compass, Pencil, RotateCcwSquare, Type, Undo2, Ungroup, Upload, VolumeX, X,
 } from 'lucide'
 
 export const EDITOR_ICONS = {
@@ -29,7 +29,7 @@ export const EDITOR_ICONS = {
   tv_t: AlignVerticalJustifyStart, tv_c: AlignVerticalJustifyCenter, tv_e: AlignVerticalJustifyEnd,
   // media
   replace: Replace, crop: Crop, fit: Minimize2, fill: Maximize2, flx: FlipHorizontal2, fly: FlipVertical2,
-  sph: Columns2, spv: Rows2, circ: Circle, unset: ImageOff, brush: Eraser, unerase: Brush, share: Share, info: Info, pdf: FileText, edge: Maximize,
+  sph: Columns2, spv: Rows2, circ: Circle, unset: ImageOff, brush: Eraser, unerase: Brush, share: Share, info: Info, pdf: FileText, edge: Maximize, mute: VolumeX,
   frame: SquareDashed, slide: Square, image: Image, video: Film, adjust: SlidersHorizontal, blend: Blend,
   dist_h: AlignHorizontalDistributeCenter, dist_v: AlignVerticalDistributeCenter, sparkles: Sparkles, sun: Sun,
   cut: Scissors, lasso: Lasso, shuffle: Shuffle, pen: PenTool,
