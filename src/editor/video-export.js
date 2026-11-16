@@ -121,10 +121,30 @@ export async function recordSlide(options) {
   }
 }
 
+// Chromium's WebCodecs implementation very commonly ships H.264 *video* encoding but not AAC
+// *audio* encoding (this is a known, well-documented gap, especially on Chrome/Linux) — mediabunny
+// would otherwise silently discard the audio track and report the conversion as invalid, which is
+// exactly the "MP4 export could not finish" failure this was throwing for videos with audio.
+// @mediabunny/aac-encoder is a ~260KB WASM AAC-LC encoder built for precisely this gap; it's only
+// loaded (and the capability probe only run) the first time it's actually needed in a session.
+let aacFallbackReady = null;
+async function ensureAacEncoder(canEncodeAudio) {
+  if (!aacFallbackReady) {
+    aacFallbackReady = canEncodeAudio('aac').then(async native => {
+      if (native) return;
+      const { registerAacEncoder } = await import('@mediabunny/aac-encoder');
+      registerAacEncoder();
+    });
+  }
+  return aacFallbackReady;
+}
+
 async function toMp4(blob, { signal, onFinalize = () => {} }) {
   signal.throwIfAborted();
   onFinalize();
-  const { Input, BlobSource, WEBM, Output, Mp4OutputFormat, BufferTarget, Conversion } = await import('mediabunny');
+  const { Input, BlobSource, WEBM, Output, Mp4OutputFormat, BufferTarget, Conversion, canEncodeAudio } = await import('mediabunny');
+  signal.throwIfAborted();
+  await ensureAacEncoder(canEncodeAudio);
   signal.throwIfAborted();
   const input = new Input({ source: new BlobSource(blob), formats: [WEBM] });
   const output = new Output({ format: new Mp4OutputFormat({ fastStart: 'in-memory' }), target: new BufferTarget() });
@@ -138,7 +158,8 @@ async function toMp4(blob, { signal, onFinalize = () => {} }) {
     signal.throwIfAborted();
     // Never "succeed" after silently dropping audio or video unsupported by the device.
     if (!conversion.isValid || conversion.discardedTracks.length) {
-      throw new Error('H.264 video or AAC audio encoding is unavailable.');
+      const dropped = conversion.discardedTracks.map(t => `${t.track.type} (${t.reason})`).join(', ');
+      throw new Error(dropped ? `Could not encode: ${dropped}` : 'H.264 video or AAC audio encoding is unavailable.');
     }
     conversion.onProgress = p => onFinalize(p);
     await conversion.execute();
@@ -146,7 +167,7 @@ async function toMp4(blob, { signal, onFinalize = () => {} }) {
     return new Blob([output.target.buffer], { type: 'video/mp4' });
   } catch (error) {
     signal.throwIfAborted();
-    throw new Error('MP4 export could not finish on this device. Try a smaller export size or a current Chrome, Edge or Safari. No WebM file was downloaded.', { cause: error });
+    throw new Error(`MP4 export could not finish on this device (${error?.message || 'unknown reason'}). Try a smaller export size or a current Chrome, Edge or Safari. No WebM file was downloaded.`, { cause: error });
   } finally {
     signal.removeEventListener('abort', abort);
     if (output.state !== 'finalized') await output.cancel().catch(() => {});

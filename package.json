@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@fix-webm-duration/fix": "^1.0.1",
+    "@mediabunny/aac-encoder": "^1.66.0",
     "heic2any": "^0.0.4",
     "immer": "^11.2.9",
     "lucide": "^1.67.0",
