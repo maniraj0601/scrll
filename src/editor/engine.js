@@ -646,8 +646,31 @@ function act(a,v){const e=sel&&ge(sel),L=doc.els,fin=()=>{commit();render();pane
 const rdURL=f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(f)}),
 dec=u=>new Promise((res,rej)=>{const im=new Image();im.onload=()=>im.naturalWidth?res(im):rej();im.onerror=rej;im.src=u}),
 decVideo=u=>new Promise((res,rej)=>{const video=document.createElement('video');video.preload='auto';video.muted=true;video.playsInline=true;const clean=()=>{video.onloadeddata=null;video.onerror=null};video.onloadeddata=()=>{clean();res(video)};video.onerror=()=>{clean();rej(new Error('unsupported video'))};video.src=u;video.load()});
-async function load(f,key){const type=f.type.startsWith('video/')?'video':f.type.startsWith('image/')?'image':null;if(!type){toast('Choose an image or video file.');return null}let url=URL.createObjectURL(f),im,video;
- try{if(type==='video')video=await decVideo(url);else im=await dec(url)}catch(_){URL.revokeObjectURL(url);if(type==='image'){try{url=await rdURL(f);im=await dec(url)}catch(__){toast(`Couldn’t open ${f.name||'that file'}. Try a JPG, PNG or WebP photo.`);return null}}else{toast(`Couldn’t play ${f.name||'that video'}. Try an MP4 or MOV video.`);return null}}
+// `file.type` is frequently empty for less-common formats (HEIC/HEIF especially, on
+// non-Apple platforms) — extensions are the only reliable fallback for routing + picking a
+// helpful error message. This only changes what gets DECODED for editing; export always draws
+// from the already-decoded `im`/`video`, so it's unaffected regardless of the source format.
+const IMG_EXT=new Set(['jpg','jpeg','png','gif','webp','bmp','svg','avif','tif','tiff','heic','heif']),
+ VID_EXT=new Set(['mp4','m4v','mov','webm','mkv','avi','3gp','3gpp','ogv']),
+ extOf=f=>(f.name||'').split('.').pop().toLowerCase(),
+ isHeic=(f,ext)=>/^image\/hei[cf]/i.test(f.type)||ext==='heic'||ext==='heif';
+// HEIC/HEIF has no native decoder outside Safari/iOS — converted to a high-quality JPEG first
+// (quality 0.95, effectively lossless-looking) so the rest of the pipeline, including export,
+// never has to know the source wasn't a JPEG to begin with.
+async function heicToJpeg(f){
+ try{const heic2any=(await import('heic2any')).default,out=await heic2any({blob:f,toType:'image/jpeg',quality:.95});return Array.isArray(out)?out[0]:out}
+ catch(_){return null}}
+async function load(f,key){const ext=extOf(f),type=f.type.startsWith('video/')||VID_EXT.has(ext)?'video':f.type.startsWith('image/')||IMG_EXT.has(ext)?'image':null;if(!type){toast('Choose an image or video file.');return null}
+ let url=URL.createObjectURL(f),im,video;
+ try{if(type==='video')video=await decVideo(url);else im=await dec(url)}
+ catch(_){URL.revokeObjectURL(url);
+  if(type!=='image'){toast(`Couldn’t play ${f.name||'that video'}. Try an MP4 or MOV video.`);return null}
+  // Safari/iOS decode HEIC natively, so the try above already succeeded there — this path is
+  // only reached on browsers with no HEIC codec, and only converts when it's actually needed.
+  if(isHeic(f,ext)){toast('Converting HEIC photo…');const jpeg=await heicToJpeg(f);
+   if(jpeg){try{url=URL.createObjectURL(jpeg);im=await dec(url)}catch(__){toast(`Couldn’t convert ${f.name||'that photo'}. Try exporting it as JPG first.`);return null}}
+   else{toast(`Couldn’t convert ${f.name||'that photo'}. Try exporting it as JPG first.`);return null}}
+  else{try{url=await rdURL(f);im=await dec(url)}catch(__){toast(`Couldn’t open ${f.name||'that file'}. Try a JPG, PNG or WebP photo.`);return null}}}
  const k=key||'k'+Date.now().toString(36)+(++kid),nw=type==='video'?video.videoWidth:im.naturalWidth,nh=type==='video'?video.videoHeight:im.naturalHeight,duration=type==='video'&&Number.isFinite(video.duration)?video.duration:0;IMG.set(k,{type,url,im,video,nw,nh,duration,size:f.size,name:f.name,file:f});return k}
 const emptyFrame=()=>doc.els.filter(x=>x.type==='img'&&!x.k).sort((a,b)=>((SL(a)-cur+doc.n)%doc.n)-((SL(b)-cur+doc.n)%doc.n)||Math.round(a.y/60)-Math.round(b.y/60)||a.x-b.x)[0];
 function reveal(){const e=sel&&ge(sel);if(!e)return;const v=$('cv'),zm=$('zm').getBoundingClientRect(),vr=v.getBoundingClientRect(),l=zm.left+e.x*z,r=l+e.w*z,tp=zm.top+e.y*z,b=tp+e.h*z;let dx=0,dy=0;
