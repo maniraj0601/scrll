@@ -99,9 +99,12 @@ input[type=search]{width:100%;padding:9px 12px 9px 36px;border-radius:12px;borde
 .ph-add:hover::before{transform:scale(1.08)}
 .ph-add span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
 .vid{position:absolute;max-width:none;pointer-events:none}
-#rulerH,#rulerV{position:absolute;z-index:8;pointer-events:none;background:var(--glass);color:var(--mute);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
-#rulerH{left:0;top:-22px;height:22px;border-bottom:1px solid var(--line);overflow:hidden}
-#rulerV{left:-22px;top:0;width:22px;border-right:1px solid var(--line);overflow:hidden}
+/* Anchored to #cw (the viewport, not the zoomed/scrolled content) so they stay put as fixed
+   rulers along the canvas window's own edges — scrolling or zooming redraws their tick marks
+   (see drawRulers()) instead of moving the ruler elements themselves. */
+#rulerH,#rulerV{position:absolute;z-index:9;pointer-events:none;background:var(--glass);color:var(--mute);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+#rulerH{top:0;left:22px;right:0;height:22px;border-bottom:1px solid var(--line);overflow:hidden}
+#rulerV{top:22px;left:0;bottom:0;width:22px;border-right:1px solid var(--line);overflow:hidden}
 #rulerH canvas,#rulerV canvas{display:block}
 .zb{position:absolute;right:12px;bottom:12px;display:flex;gap:6px;padding:4px;border-radius:99px;background:var(--glass);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);box-shadow:0 2px 12px rgba(0,0,0,.15)}
 .zb .ib{background:none;padding:6px 12px}
@@ -411,9 +414,12 @@ select.open{outline:2px solid var(--acc);outline-offset:1px}
 #pn .sgrid{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}#pn .st{border-radius:12px;background:var(--grp);box-shadow:0 0 0 .5px var(--line);padding:10%}#pn .st.dk{background:#3a3a3c}#pn .st.bg{padding:0}
 #pn .stcol{display:flex;flex-wrap:wrap;gap:8px}#pn .stcol button{width:28px;height:28px;margin:0;padding:0;border:0;border-radius:50%;box-shadow:inset 0 0 0 .5px rgba(0,0,0,.25);cursor:pointer}#pn .stcol button[aria-pressed=true]{box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--acc)}
 .L.stk{height:auto;pointer-events:none}
-#ts,#nbs{position:fixed;inset:0;z-index:55;background:#0008;display:none;place-items:center;padding:14px}#ts.on,#nbs.on{display:grid}
-#tsb,#nbb{background:var(--card);border-radius:22px;width:min(820px,100%);max-height:94dvh;overflow:auto;padding:16px;animation:up .4s var(--ease)}#nbb{width:min(560px,100%)}
-.tsh{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.tsh h2{margin:0;font:700 22px var(--sf)}.tsh p{margin:2px 0 8px;color:var(--mute);font-size:14px}
+#ts,#nbs,#tps{position:fixed;inset:0;z-index:55;background:#0008;display:none;place-items:center;padding:14px}#ts.on,#nbs.on,#tps.on{display:grid}
+#tsb,#nbb,#tpb{background:var(--card);border-radius:22px;width:min(820px,100%);max-height:94dvh;overflow:auto;padding:16px;animation:up .4s var(--ease)}#nbb{width:min(560px,100%)}#tpb{width:min(1040px,100%)}
+.tsh,.tph{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.tsh h2,.tph h2{margin:0;font:700 22px var(--sf)}.tsh p,.tph p{margin:2px 0 8px;color:var(--mute);font-size:14px}
+.tph{position:sticky;top:-16px;background:var(--card);padding:16px 0 8px;margin:-16px 0 4px;z-index:1}
+#tpb .search{margin-bottom:10px}#tpb .search input{width:100%;padding:10px 14px 10px 36px;border:0;border-radius:12px;background:var(--fill);color:var(--ink);font:500 14px var(--sf)}
+#tpb .chips{margin-bottom:14px}#tpb .chip[aria-pressed=true]{background:var(--acc);color:var(--on)}
 .strip.big{margin:8px 0}
 .nbl{display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:8px;margin:8px 0}
 .nlc{border:0;background:var(--fill);border-radius:12px;padding:8px 4px;display:grid;justify-items:center;gap:4px;cursor:pointer}.nlc svg{width:44px;height:55px}.nlc rect{fill:var(--acc);stroke:none}.nlc small{font-size:10px;color:var(--mute);text-align:center;line-height:1.1}
@@ -560,6 +566,7 @@ svg.i{fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;strok
 .ih-k{flex:none;width:30px;height:30px;border-radius:8px;display:grid;place-items:center;background:color-mix(in srgb,var(--acc) 15%,transparent);color:var(--acc)}.ih-k svg{width:17px;height:17px}
 .ih-t{flex:1;min-width:0;line-height:1.2}.ih-t b{display:block;font:600 15px var(--sf);letter-spacing:-.01em}.ih-t small{display:block;font:400 11.5px var(--sf);color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
 .ih-a{display:flex;gap:2px;flex:none}#pn .ih-a .ib.ico{width:32px;height:32px;border-radius:8px}#pn .ih-a .ib.ico svg{width:18px;height:18px}
+.ih-a .infob{color:var(--mute)!important}.ih-a .infob svg{width:16px!important;height:16px!important}
 #pn .ib.ico.dz:hover,.tt.dz:hover{color:#ff3b30!important;background:color-mix(in srgb,#ff3b30 13%,transparent)}
 .tabs{display:flex;gap:2px;margin-top:10px;padding:2px;border-radius:9px;background:var(--fill);overflow-x:auto;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}
 .tabs button{flex:1 0 auto;display:inline-flex;align-items:center;justify-content:center;gap:5px;border:0;background:none;padding:5px 10px;border-radius:7px;font:500 12.5px var(--sf);color:var(--ink);cursor:pointer;white-space:nowrap;transition:background .18s var(--ease),box-shadow .18s}
@@ -641,6 +648,10 @@ i.lrth.lric{display:grid;place-items:center;background:var(--fill)}
 .cuthow{margin:6px 0 12px;padding-left:20px;color:var(--mute);font-size:12.5px;line-height:1.5}.cuthow li+li{margin-top:4px}.cuthow b{color:var(--ink);font-weight:600}
 .add-hero[disabled]{opacity:.45;cursor:default}
 #pn .shp small{font-size:10px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.gradpick{display:flex;align-items:center;gap:8px;margin:2px 0 8px;padding:8px 10px;background:var(--fill);border-radius:12px}
+.gradpick .gprev{flex:1;min-width:0;height:26px;border-radius:7px;box-shadow:inset 0 0 0 .5px rgba(0,0,0,.18)}
+.gradpick input[type=color]{width:26px;height:26px;padding:0;border:0;border-radius:7px;flex:none;background:none}
+.gradpick input[type=range]{width:72px;flex:none}
 #pn .fills{display:grid;grid-template-columns:repeat(auto-fill,minmax(26px,32px));justify-content:space-between;gap:8px;margin-bottom:10px}
 #pn .fills button{aspect-ratio:1;width:100%;min-width:0;margin:0;padding:0;border:0;border-radius:50%;box-shadow:inset 0 0 0 .5px rgba(0,0,0,.18);cursor:pointer;transition:transform .15s var(--ease)}
 #pn .fills button:hover{transform:scale(1.08)}#pn .fills button[aria-pressed=true]{box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--acc)}

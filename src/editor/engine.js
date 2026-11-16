@@ -309,25 +309,30 @@ function syncVideoPlayback(){if(!doc||disposed)return;if($('pv').classList.conta
  const active=!document.hidden&&!xbusy&&$('ed').classList.contains('on'),v=$('cv').getBoundingClientRect(),s=$('stage').getBoundingClientRect(),
   left=Math.max(0,(v.left-s.left)/z),right=Math.min(doc.n*doc.W,(v.right-s.left)/z),top=Math.max(0,(v.top-s.top)/z),bottom=Math.min(doc.H,(v.bottom-s.top)/z);
  doc.els.forEach(e=>{if(e.type!=='img'||IMG.get(e.k)?.type!=='video')return;const b=boxOf(e);playVideo(e,active&&e.o!==0&&b.r>left&&b.l<right&&b.b>top&&b.t<bottom)})}
-function drawRulers(){if(!doc)return;const dpr=Math.max(1,window.devicePixelRatio||1),width=doc.n*doc.W*z,height=doc.H*z,target=48/Math.max(z,.01),power=10**Math.floor(Math.log10(target)),step=[1,2,5,10].map(v=>v*power).find(v=>v>=target)||10*power,minor=step/5;
- const paint=(id,length,vertical)=>{const canvas=$(`${id}`).querySelector('canvas'),ctx=canvas.getContext('2d'),cssW=vertical?22:length,cssH=vertical?length:22;canvas.style.width=cssW+'px';canvas.style.height=cssH+'px';canvas.width=Math.ceil(cssW*dpr);canvas.height=Math.ceil(cssH*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,cssW,cssH);ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--mute').trim()||'#8e8e93';ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--line').trim()||'rgba(60,60,67,.16)';ctx.font='10px -apple-system,BlinkMacSystemFont,sans-serif';ctx.textBaseline='middle';
-  for(let point=0;point<=(vertical?doc.H:doc.n*doc.W);point+=minor){const pos=point*z,major=Math.abs(point/step-Math.round(point/step))<1e-6;ctx.beginPath();if(vertical){ctx.moveTo(cssW, pos);ctx.lineTo(cssW-(major?9:4),pos)}else{ctx.moveTo(pos,cssH);ctx.lineTo(pos,cssH-(major?9:4))}ctx.stroke();if(major){const label=String(point);if(vertical){ctx.save();ctx.translate(7,Math.min(cssH-3,pos+2));ctx.rotate(-Math.PI/2);ctx.textAlign='left';ctx.fillText(label,0,0);ctx.restore()}else{ctx.textAlign='left';ctx.fillText(label,pos+3,cssH/2)}}}
+// Rulers are fixed to the canvas viewport (#cw), not the zoomed/scrolled content — they used to
+// live inside the scrolling element and get nudged back into view on scroll, which meant
+// zooming in far enough could still carry them off-screen. Now the ruler elements never move;
+// scrolling or zooming just redraws where the tick marks fall, using #stage's on-screen
+// position (which already bakes in scroll offset, zoom, and the centred-when-smaller padding)
+// as the one offset needed to place every tick correctly.
+function drawRulers(){if(!doc)return;const dpr=Math.max(1,window.devicePixelRatio||1),
+  cvR=$('cv').getBoundingClientRect(),stR=$('stage').getBoundingClientRect(),
+  originX=stR.left-cvR.left-22,originY=stR.top-cvR.top-22,
+  viewW=Math.max(0,cvR.width-22),viewH=Math.max(0,cvR.height-22),
+  target=48/Math.max(z,.01),power=10**Math.floor(Math.log10(target)),step=[1,2,5,10].map(v=>v*power).find(v=>v>=target)||10*power,minor=step/5;
+ const paint=(id,lengthPx,vertical,origin,extent)=>{const canvas=$(`${id}`).querySelector('canvas'),ctx=canvas.getContext('2d'),cssW=vertical?22:lengthPx,cssH=vertical?lengthPx:22;canvas.style.width=cssW+'px';canvas.style.height=cssH+'px';canvas.width=Math.ceil(cssW*dpr);canvas.height=Math.ceil(cssH*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,cssW,cssH);ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--mute').trim()||'#8e8e93';ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--line').trim()||'rgba(60,60,67,.16)';ctx.font='10px -apple-system,BlinkMacSystemFont,sans-serif';ctx.textBaseline='middle';
+  const first=Math.max(0,Math.floor((-origin/z)/minor)*minor),last=Math.min(extent,(lengthPx-origin)/z);
+  for(let point=first;point<=last;point+=minor){const pos=origin+point*z,major=Math.abs(point/step-Math.round(point/step))<1e-6;ctx.beginPath();if(vertical){ctx.moveTo(cssW,pos);ctx.lineTo(cssW-(major?9:4),pos)}else{ctx.moveTo(pos,cssH);ctx.lineTo(pos,cssH-(major?9:4))}ctx.stroke();if(major){const label=String(Math.round(point));if(vertical){ctx.save();ctx.translate(7,Math.min(cssH-3,pos+2));ctx.rotate(-Math.PI/2);ctx.textAlign='left';ctx.fillText(label,0,0);ctx.restore()}else{ctx.textAlign='left';ctx.fillText(label,pos+3,cssH/2)}}}
   // Thirds guides: hard to eyeball on a plain ruler, and the exact spots the move/resize
   // magnetism (see cands()) already snaps to, same as the slide centre.
   const acc=getComputedStyle(document.documentElement).getPropertyValue('--acc').trim()||'#0a84ff',
    thirds=vertical?[[doc.H/3,'⅓'],[doc.H*2/3,'⅔']]:Array.from({length:doc.n},(_,i)=>[[i*doc.W+doc.W/3,'⅓'],[i*doc.W+doc.W*2/3,'⅔']]).flat();
   ctx.save();ctx.strokeStyle=acc;ctx.fillStyle=acc;ctx.font='700 9px -apple-system,BlinkMacSystemFont,sans-serif';
-  thirds.forEach(([point,label])=>{const pos=point*z;ctx.beginPath();
+  thirds.forEach(([point,label])=>{if(point<first-minor||point>last+minor)return;const pos=origin+point*z;ctx.beginPath();
    if(vertical){ctx.moveTo(cssW,pos);ctx.lineTo(cssW-12,pos);ctx.stroke();ctx.save();ctx.translate(7,pos);ctx.rotate(-Math.PI/2);ctx.textAlign='center';ctx.fillText(label,0,0);ctx.restore()}
    else{ctx.moveTo(pos,cssH);ctx.lineTo(pos,cssH-12);ctx.stroke();ctx.textAlign='center';ctx.fillText(label,pos,cssH-15)}});
   ctx.restore()};
- $('rulerH').style.width=width+'px';$('rulerV').style.height=height+'px';paint('rulerH',width,false);paint('rulerV',height,true);stickRulers()}
-// Rulers live inside #zm (so they share its coordinate space and scroll with it), which
-// otherwise means they scroll out of view entirely once zoom makes the canvas bigger than
-// the viewport. Clamp their offset so they never go further from the canvas than their
-// resting position, but do slide down/right to hug the visible edge of #cv once scrolled.
-function stickRulers(){if(!doc)return;const cvR=$('cv').getBoundingClientRect(),zmR=$('zm').getBoundingClientRect();
- $('rulerH').style.top=Math.max(-22,cvR.top-zmR.top)+'px';$('rulerV').style.left=Math.max(-22,cvR.left-zmR.left)+'px'}
+ paint('rulerH',viewW,false,originX,doc.n*doc.W);paint('rulerV',viewH,true,originY,doc.H)}
 function render(){const{W,H,n}=doc,st=$('stage');
  $('zm').style.width=n*W*z+'px';$('zm').style.height=H*z+'px';$('zf').textContent=Math.round(z*100)+'%';$('cw').classList.toggle('zoomed',Math.abs(z-fitZ())>.004);st.style.cssText=`width:${n*W}px;height:${H}px;transform:scale(${z});--k:${1/z}`;
  $('bgs').innerHTML=doc.mbg?`<div class="bg" style="left:0;top:0;width:${n*W}px;height:${H}px;background:${doc.mbg}"></div>`:doc.bg.map((b,i)=>`<div class="bg" style="left:${i*W}px;top:0;width:${W}px;height:${H}px;background:${b||'#fff'}"></div>`).join('');
@@ -389,6 +394,13 @@ SEC=(t,b,x='')=>`<section class="is"><h4><span>${t}</span>${x}</h4><div class="i
 AA=(a,l)=>`<button type="button" class="aa" data-a="${a}" data-tip="${l}" aria-label="${l}">${ic('all')}<span>All</span></button>`,
 PL=(a,n,l,o={})=>`<button type="button" class="pl" data-a="${a}"${o.v!=null?` data-v="${o.v}"`:''}${o.tip?` data-tip="${o.tip}"`:''}>${ic(n)}<span>${l}</span></button>`,
 HD=(k,t,sub,acts,tabs='')=>`<header class="ih"><div class="ih-r"><span class="ih-k">${ic(k)}</span><div class="ih-t"><b>${t}</b>${sub?`<small>${sub}</small>`:''}</div><div class="ih-a">${acts}</div></div>${tabs}</header>`,
+// Quiet little (i) next to the dimensions/size line — full file name, format and precise size
+// live in the tooltip (hover on desktop, long-press on touch; see the shared [data-tip] system)
+// rather than permanent on-screen text, since this is a handy-reference detail, not something
+// that needs constant visual weight next to the much more important duplicate/delete actions.
+fileInfo=m=>{const mime=m.file?.type,fmt=mime?mime.split('/')[1]?.toUpperCase():(m.name||'').split('.').pop()?.toUpperCase()||'Unknown',
+ kb=m.size/1024,sz=kb>1024?(kb/1024).toFixed(2)+' MB':Math.round(kb)+' KB';
+ return `<button type="button" class="ib ico infob" data-tip="${esc(m.name||'Untitled')} · ${fmt} · ${m.nw}×${m.nh}px · ${sz}" aria-label="File details">${ic('info')}</button>`},
 TABS=(cur,list,a='ptab')=>`<div class="tabs" role="tablist">${list.map(([k,l])=>`<button type="button" role="tab" data-a="${a}" data-v="${k}" aria-selected="${cur===k}" aria-pressed="${cur===k}">${l}</button>`).join('')}</div>`,
 ALN=a=>[['l','al_l','Align left'],['c','al_c','Centre horizontally'],['r','al_r','Align right'],['t','al_t','Align top'],['m','al_m','Centre vertically'],['b','al_b','Align bottom']].map(([v,n,l])=>IB(a,n,l,v)).join(''),
 PT={};
@@ -449,7 +461,14 @@ const SHP=(()=>{const P=a=>a.map(([x,y])=>`${+x.toFixed(2)}% ${+y.toFixed(2)}%`)
  SHGRID=(a,curK)=>`<div class="shp">${SHP.map(q=>`<button type="button" data-a="${a}" data-v="${q[0]}" data-tip="${q[1]}" aria-label="${q[1]}"${curK!=null?` aria-pressed="${curK===q[0]}"`:''}>${SHPV(q)}<small>${q[1]}</small></button>`).join('')}</div>`,
  FILLS=['#16161a','#ffffff','#f2e8dc','#ff3b30','#ff9500','#ffcc00','#34c759','#30b0c7','#3b4bff','#af52de','#ff2d55','#8e8e93',
   'linear-gradient(135deg,#f58529,#dd2a7b 55%,#8134af)','linear-gradient(135deg,#4facfe,#00f2fe)','linear-gradient(135deg,#f6d365,#fda085)','linear-gradient(135deg,#a18cd1,#fbc2eb)','linear-gradient(135deg,#43e97b,#38f9d7)','linear-gradient(135deg,#0f2027,#2c5364)'],
- shapeKey=e=>e.sk||(e.cp?'':e.rd>=Math.min(e.w,e.h)/2?'pill':e.rd>0?'round':'rect');
+ shapeKey=e=>e.sk||(e.cp?'':e.rd>=Math.min(e.w,e.h)/2?'pill':e.rd>0?'round':'rect'),
+ // The preset swatches above are fixed 2-3 stop gradients; this lets someone pick their own
+ // two colours and angle instead. Reuses the exact same storage shape (e.c/e.fill just holds a
+ // plain CSS linear-gradient() string either way), so nothing downstream — paint(), export,
+ // SlidePreview — needs to know a gradient came from a preset vs a custom pick.
+ parseGrad2=s=>{const m=/^linear-gradient\(\s*([\d.]+)deg\s*,\s*(#[0-9a-fA-F]{3,8})[^,]*,\s*(#[0-9a-fA-F]{3,8})/.exec(s||'');return m?{ang:+m[1],c0:m[2],c1:m[3]}:null},
+ GRADPICK=(key,curVal)=>{const pg=parseGrad2(curVal),c0=pg?.c0||'#0a84ff',c1=pg?.c1||'#5e5ce6',ang=pg?.ang??135;
+  return `<div class="gradpick" data-gk="${key}"><span class="gprev" style="background:linear-gradient(${ang}deg,${c0},${c1})"></span><input type="color" data-gc="0" value="${hex(c0)}" aria-label="Gradient colour 1"><input type="color" data-gc="1" value="${hex(c1)}" aria-label="Gradient colour 2"><input type="range" data-gc="ang" min="0" max="360" step="1" value="${ang}" aria-label="Gradient angle" data-tip="Angle"></div>`};
 const CUTS=[['none','None'],['tt','Torn top'],['tb','Torn bottom'],['ts','Torn strip'],['ta','Torn edges'],['wv','Wavy'],['blob','Blob'],['scal','Scallop'],['circle','Circle'],['heart','Heart'],['star','Star'],['arch','Arch'],['hex','Hexagon'],['spark','Sparkle'],['burst','Badge'],['pen','Freehand']],
  CUTV=k=>k==='none'?'<svg viewBox="0 0 100 100" aria-hidden="true"><rect x="12" y="12" width="76" height="76" rx="6"/></svg>':k==='pen'?ic('lasso'):`<svg viewBox="0 0 100 100" aria-hidden="true"><polygon points="${cpPts(cutCp(k,{a:9,sd:5}),76,76,12,12)}"/></svg>`,
  CUTSEC=e=>{const k=e.ck||'none',torn=!!CUTT[k];return SEC('Cutout',`<div class="shp cut">${CUTS.map(([v,l])=>`<button type="button" data-a="cut" data-v="${v}" data-tip="${v==='pen'?'Draw your own shape':l}" aria-label="${l}" aria-pressed="${k===v}">${CUTV(v)}<small>${l}</small></button>`).join('')}</div>`
@@ -475,7 +494,7 @@ function panel(){const e=sel&&ge(sel);let h='',key=mode;$('ed').classList.toggle
   let tab=PT[tk];if(!tabs.some(([k])=>k===tab))tab=tabs[0][0];panel.tk=tk;key=e.id+':'+tab;
   const kind=t==='draw'?'draw':isStk?'sticker':t==='text'?'text':e.ln?'line':t==='shape'?'shape':!m?'frame':vid?'video':'image',title=t==='draw'?'Drawing':isStk?'Sticker':t==='text'?'Text':e.ln?(e.a0||e.a1?'Arrow':'Line'):t==='shape'?'Shape':!m?'Empty frame':vid?'Video':'Photo',
    sub=t==='draw'?(n=>`${n} stroke${n===1?'':'s'}`)(e.st.filter(q=>q.t!=='er').length):isStk?esc(SMAP.get(e.stk)?.n||''):m?`${m.nw}×${m.nh} · ${(m.size/1048576).toFixed(1)} MB${vid&&m.duration?' · '+timeLabel(m.duration):''}`:t==='text'?(FN[e.f]||''):`${Math.round(e.w)} × ${Math.round(e.h)}`;
-  h=HD(kind,title,sub,IB('dup','dup','Duplicate (⌘D)')+DEL('del')+IB('done','done','Done (Esc)'),TABS(tab,tabs));
+  h=HD(kind,title,sub,(m?fileInfo(m):'')+IB('dup','dup','Duplicate (⌘D)')+DEL('del')+IB('done','done','Done (Esc)'),TABS(tab,tabs));
   const OP=S('o','Opacity',0,1,.01),
    FRT=TG(TT('split','sph','Columns',{v:'h',tip:'Split side by side'})+TT('split','spv','Rows',{v:'v',tip:'Split top and bottom'})+TT('rdc','circ','Circle',{tip:'Make a circle frame'})+TT('layfr','lay','Layouts',{tip:'Collage layouts inside this frame'})),
    FRS=S('rd','Corners',0,400,1)+S('bw','Border',0,60,1)+C('bc','Colour'),
@@ -494,8 +513,8 @@ function panel(){const e=sel&&ge(sel);let h='',key=mode;$('ed').classList.toggle
    +SEC('Effects',S('fd','Fade',0,.6,.01)+S('vg','Vignette',0,.8,.01)+S('ta','Tint',0,.5,.01)+C('tn','Tint colour'))
    +SEC('Blend',(isImg?`<label class="pr"><span>Mode</span><select data-k="blend">${[['source-over','Normal'],['multiply','Multiply'],['screen','Screen'],['overlay','Overlay'],['darken','Darken'],['lighten','Lighten'],['color-dodge','Color dodge'],['color-burn','Color burn'],['hard-light','Hard light'],['soft-light','Soft light'],['difference','Difference'],['exclusion','Exclusion'],['hue','Hue'],['saturation','Saturation'],['color','Color'],['luminosity','Luminosity']].map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select></label>`:'')+OP,isImg?AA('blendall','Apply blend & opacity to all photos'):'');
   else if(tab==='text')h+=SEC('Content','<textarea class="txa" data-k="text" rows="3" placeholder="Type something" aria-label="Text"></textarea>')
-   +SEC('Font',`<label class="pr"><span>Typeface</span><select data-k="f">${Object.entries(FN).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></label><label class="pr"><span>Weight</span><select data-k="wt">${[[400,'Regular'],[600,'Semibold'],[700,'Bold'],[900,'Black']].map(([w,l])=>`<option value="${w}">${l}</option>`).join('')}</select></label>${S('fs','Size',8,400,1)}`)
-   +SEC('Colour',`<div class="fills">${FILLS.map(f=>`<button type="button" data-a="txtfill" data-v="${f}" style="background:${f}" aria-label="Colour ${f.startsWith('#')?f:'gradient'}" aria-pressed="${e.c===f}"></button>`).join('')}</div>`+C('c','Custom'))
+   +SEC('Font',`<label class="pr"><span>Typeface</span><select data-k="f" data-live="1">${Object.entries(FN).map(([k,v])=>`<option value="${k}" style="font-family:${esc(FAM[k])}">${v}</option>`).join('')}</select></label><label class="pr"><span>Weight</span><select data-k="wt">${[[400,'Regular'],[600,'Semibold'],[700,'Bold'],[900,'Black']].map(([w,l])=>`<option value="${w}">${l}</option>`).join('')}</select></label>${S('fs','Size',8,400,1)}`)
+   +SEC('Colour',`<div class="fills">${FILLS.map(f=>`<button type="button" data-a="txtfill" data-v="${f}" style="background:${f}" aria-label="Colour ${f.startsWith('#')?f:'gradient'}" aria-pressed="${e.c===f}"></button>`).join('')}</div>`+C('c','Custom')+GRADPICK('c',e.c))
    +SEC('Alignment',`<div class="sg2">${SG(IB('ta','ta_l','Align left','left',e.a==='left')+IB('ta','ta_c','Centre','center',e.a==='center')+IB('ta','ta_r','Align right','right',e.a==='right'))}${SG(IB('tv','tv_t','Top','t',e.v==='t')+IB('tv','tv_c','Middle','c',e.v==='c')+IB('tv','tv_e','Bottom','e',e.v==='e'))}</div>`)
    +SEC('Spacing',S('ls','Letters',-.1,.6,.01)+S('lh','Lines',.8,2.2,.01));
   else if(t==='text')h+=SEC('Shadow',`<div class="pls">${PL('tsp','x','None',{v:'none'})+PL('tsp','drop','Soft',{v:'soft'})+PL('tsp','sparkles','Strong',{v:'strong'})}</div>`+S('ts','Opacity',0,1,.01)+S('tblur','Softness',0,24,1)+C('tc','Colour'))+SEC('Appearance',OP);
@@ -509,7 +528,7 @@ function panel(){const e=sel&&ge(sel);let h='',key=mode;$('ed').classList.toggle
    +SEC('Glow',S('_gl','Intensity',0,100,1)+`<div class="fills">${glowSw(gc,'inkrgc')}</div>`)
    +SEC('Recolour',`<div class="fills">${INKC.map(c=>`<button type="button" data-a="inkrc" data-v="${c}" style="background:${c}" aria-label="Recolour ink ${c}"></button>`).join('')}</div>`)+SEC('Appearance',OP)}
   else if(tab==='shape')h+=SEC('Shape',SHGRID('shpset',shapeKey(e)));
-  else h+=SEC('Fill',`<div class="fills">${FILLS.map(f=>`<button type="button" data-a="shpfill" data-v="${f}" style="background:${f}" aria-label="Fill ${f.startsWith('#')?f:'gradient'}" aria-pressed="${e.fill===f}"></button>`).join('')}</div>`+C('fill','Custom')+(e.cp?'':S('rd','Corners',0,400,1)))+SEC('Appearance',`<label class="tgl"><span>Shadow</span><button type="button" class="sw" data-a="shsh" role="switch" aria-checked="${!!e.sh}" aria-label="Shadow"><i></i></button></label>`+OP)}
+  else h+=SEC('Fill',`<div class="fills">${FILLS.map(f=>`<button type="button" data-a="shpfill" data-v="${f}" style="background:${f}" aria-label="Fill ${f.startsWith('#')?f:'gradient'}" aria-pressed="${e.fill===f}"></button>`).join('')}</div>`+C('fill','Custom')+GRADPICK('fill',e.fill)+(e.cp?'':S('rd','Corners',0,400,1)))+SEC('Appearance',`<label class="tgl"><span>Shadow</span><button type="button" class="sw" data-a="shsh" role="switch" aria-checked="${!!e.sh}" aria-label="Shadow"><i></i></button></label>`+OP)}
  else if(mode==='draw'){key='draw';const t=PEN.t,er=t==='er',bl=BRUSH.find(b=>b[0]===t);
   h=HD('draw','Draw',er?'Drag over ink to erase it':`${bl[1]} · drag on a slide`,IB('inkundo','undo','Undo stroke (⌘Z)')+IB('inkdone','done','Done (Esc)'))
    +SEC('Brush',`<div class="brs">${BRUSH.map(([k,l,tip])=>`<button type="button" data-a="inkt" data-v="${k}" data-tip="${tip}" aria-label="${l}" aria-pressed="${t===k}">${ic('b_'+k)}<small>${l}</small></button>`).join('')}</div>`)
@@ -532,9 +551,6 @@ function panel(){const e=sel&&ge(sel);let h='',key=mode;$('ed').classList.toggle
  else if(mode==='imp'){key='imp';const L=impL;
   h=HD('impsl','Import slides',`Adds another draft’s slides after slide ${doc.n}`,IB('back','done','Done'))
   +(!L?'<p class="hint">Loading your drafts…</p>':L.length?`<div class="imps">${L.map(p=>{const fit=p.H!==doc.H;return `<button type="button" class="imp" data-a="impd" data-v="${p.id}"${impBusy?' disabled':''}><span class="imt" style="aspect-ratio:1080/${p.H||1350}">${p.thumb?`<img src="${p.thumb}" alt="">`:''}</span><span class="imx"><b>${esc(p.name)}</b><small>${p.n} slide${p.n>1?'s':''} · ${ARL[AR_OF[p.H]]||'Custom'} · ${ago(p.updated)}</small>${fit?`<small class="imf">Fitted to ${ARL[AR_OF[doc.H]]||'this size'}</small>`:''}</span>${ic('plus')}</button>`}).join('')}</div><p class="hint">Slides are added to the end, with their photos, text and drawings. You can always undo.</p>`:'<p class="hint">No other drafts yet. Anything you make is saved automatically, so it will show up here.</p>')}
- else if(mode==='tpl'){key='tpl';const ar=AR_OF[doc.H],L=TPL_ALL.filter(t=>t.ar===ar);
-  h=HD('tplsl','Insert a template',`Inserts after slide ${cur+1} · ${ARL[ar]||'this size'} only`,IB('back','done','Done'))
-  +(L.length?`<div class="imps">${L.map(t=>`<button type="button" class="imp" data-a="tpld" data-v="${t.id}"${tplBusy?' disabled':''}><span class="imt" style="aspect-ratio:1080/${({'1/1':1080,'9/16':1920})[t.ar]||1350}"></span><span class="imx"><b>${esc(t.name)}</b><small>${t.cat} · ${(t.m||t.S.length)} slide${(t.m||t.S.length)>1?'s':''}</small></span>${ic('plus')}</button>`).join('')}</div><p class="hint">Slides are inserted with their photos, text and drawings — tap one to continue editing. You can always undo.</p>`:`<p class="hint">No ${ARL[ar]||'matching'} templates yet.</p>`)}
  else{key='slide';h=HD('slides',`Slide ${cur+1}`,`of ${doc.n} · ${esc(doc.name||'Untitled carousel')}`,'')
   +SEC('Slide',C('_bg','Background'))
   +SEC('Project',`<label class="pr"><span>Name</span><input type="text" data-k="_nm" maxlength="60" placeholder="Untitled carousel"></label><label class="pr"><span>Preview as</span><select data-k="previewTarget">${PREVIEW_TARGETS.map(([k,label])=>`<option value="${k}"${k===pvKey()?' selected':''}>${label}</option>`).join('')}</select></label>`)
@@ -591,7 +607,7 @@ function act(a,v){const e=sel&&ge(sel),L=doc.els,fin=()=>{commit();render();pane
  case'back':mode='slide';slideOpen=false;render();return panel();
  case'imp':sel=null;multi.clear();eraseMode=null;cropId=null;mode='imp';slideOpen=false;impL=null;render();panel();impLoad();return;
  case'impd':importDraft(v);return;
- case'tpl':sel=null;multi.clear();eraseMode=null;cropId=null;mode='tpl';slideOpen=false;render();panel();return;
+ case'tpl':openTplPicker();return;
  case'tpld':importTemplate(v);return;
  case'stk':addSticker(v);return;
  case'stktab':stkTab=v;return panel();
@@ -744,9 +760,13 @@ $('stage').addEventListener('pointermove',ev=>{const e=eraseMode&&ge(eraseMode);
 // drag may not leave one straddling the boundary; other element types keep that freedom.
 function clampVideoToSlide(e,startX){if(e.type!=='img'||e.w>doc.W||IMG.get(e.k)?.type!=='video')return;const s=SL({x:startX,w:e.w})*doc.W;e.x=Math.max(s,Math.min(s+doc.W-e.w,e.x))}
 $('stage').addEventListener('pointerdown',ev=>{if(spaceDown||ev.button===1||ev.button===2)return;const h=ev.target.closest('[data-h]'),n=ev.target.closest('.e')||(sel&&ev.target.closest('#rp')?{dataset:{id:sel}}:null);let e=sel&&ge(sel);
- if(ev.shiftKey||multiSelectMode)return;
+ // Shift/multi-select mode exists so a plain tap on an *unselected* object toggles it into the
+ // selection (handled by the click listener below) instead of immediately moving it. But that
+ // guard was unconditional, so once you had 2+ objects selected there was no way to drag the
+ // group at all — press-dragging an *already-selected* object still needs to fall through.
+ if((ev.shiftKey||multiSelectMode)&&!(n&&multi.has(n.dataset.id)))return;
  if(h&&e&&multi.size<2)drag={m:h.dataset.h==='rot'?'rt':'rs',h:h.dataset.h.split(',').map(Number)};
- else if(n&&(ev.pointerType==='mouse'||n.dataset.id===sel)){if(!multi.has(n.dataset.id)){select(n.dataset.id);pds=n.dataset.id}e=ge(sel);drag=multi.size>1?{m:'multi',items:[...multi].map(id=>{const q=ge(id);return{id,x:q.x,y:q.y}})}:{m:cropId===sel?'cp':'mv'}}
+ else if(n&&(ev.pointerType==='mouse'||n.dataset.id===sel||multi.has(n.dataset.id))){if(!multi.has(n.dataset.id)){select(n.dataset.id);pds=n.dataset.id}e=ge(sel);drag=multi.size>1?{m:'multi',items:[...multi].map(id=>{const q=ge(id);return{id,x:q.x,y:q.y}})}:{m:cropId===sel?'cp':'mv'}}
  else return;
  Object.assign(drag,{x:ev.clientX,y:ev.clientY,e0:{...e},mv:0});try{ev.target.setPointerCapture(ev.pointerId)}catch(_){}ev.preventDefault()});
 listen(window,'pointermove',ev=>{if(!drag)return;const e=ge(sel);if(!e)return;const dx=(ev.clientX-drag.x)/z,dy=(ev.clientY-drag.y)/z,o=drag.e0;drag.mv=1;if(e.lg&&(drag.m==='mv'||drag.m==='rs')){delete e.lg;delete e.li}
@@ -782,7 +802,9 @@ listen(window,'pointermove',ev=>{if(!drag)return;const e=ge(sel);if(!e)return;co
    const sx=hx*(w-o.w)/2,sy=hy*(h-o.h)/2,cx=o.x+o.w/2+sx*c-sy*s,cy=o.y+o.h/2+sx*s+sy*c;Object.assign(e,{w,h,x:cx-w/2,y:cy-h/2})}}
  if(e.type==='text')fitT(e);if(drag.m==='rs'){if(!e.r&&!ev.altKey&&!ev.metaKey)snapR(e,drag.h[0],drag.h[1]);else{drag.st=null;guides(e,null,null,[],[])}}doc.els.filter(q=>multi.has(q.id)).forEach(q=>paint(NODES.get(q.id),q));paint(NODES.get(e.id),e);place();sync();bdg(e)});
 const endDrag=()=>{if(drag&&drag.mv){commit();mvT=Date.now()}drag=null;$('gx').classList.remove('on');$('gy').classList.remove('on');$('gx')._o=$('gy')._o=0;$('sel').classList.remove('snap');$('bd').style.display='none';place()};listen(window,'pointerup',endDrag);listen(window,'pointercancel',endDrag);
-$('pn').addEventListener('input',ev=>{const i=ev.target,k=i.dataset.k;if(i.id==='stq'){stkQ=i.value;$('stg').innerHTML=stkList(stkTab,stkQ).map(x=>stkTile(x,'stk')).join('')||'<p class="hint">No stickers match.</p>';return}if(!k)return;if(i.type==='range')rfill(i);const num=i.type==='number'||i.type==='range',nv=num?parseFloat(i.value)||0:i.value;
+$('pn').addEventListener('input',ev=>{const i=ev.target,k=i.dataset.k;if(i.id==='stq'){stkQ=i.value;$('stg').innerHTML=stkList(stkTab,stkQ).map(x=>stkTile(x,'stk')).join('')||'<p class="hint">No stickers match.</p>';return}
+ if(i.dataset.gc!=null){const wrap=i.closest('.gradpick'),gk=wrap.dataset.gk,c0=wrap.querySelector('[data-gc="0"]').value,c1=wrap.querySelector('[data-gc="1"]').value,ang=wrap.querySelector('[data-gc="ang"]').value,grad=`linear-gradient(${ang}deg,${c0},${c1})`;wrap.querySelector('.gprev').style.background=grad;const e=ge(sel);if(e){e[gk]=grad;paint(NODES.get(e.id),e)}return}
+ if(!k)return;if(i.type==='range')rfill(i);const num=i.type==='number'||i.type==='range',nv=num?parseFloat(i.value)||0:i.value;
  if(k==='_bg'){if(doc.mbg)doc.mbg=i.value;else doc.bg[cur]=i.value;render();return}
  if(k==='_nm'){doc.name=i.value;saveSoon();return}
  if(k==='previewTarget'){doc.previewTarget=nv;return}
@@ -797,7 +819,7 @@ $('pn').addEventListener('input',ev=>{const i=ev.target,k=i.dataset.k;if(i.id===
  else if(k==='vs'||k==='ve'){const m=e.type==='img'&&e.k&&IMG.get(e.k);if(m?.type==='video'&&m.duration>0){e[k]=trimValue(nv,k,clipStart(e,m),clipEnd(e,m),m.duration);sync();const video=NODES.get(e.id)?.querySelector('video');if(video){video.currentTime=clipStart(e,m);if(video.paused)syncVideoPlayback()}}}
  else{e[k]=nv;if(k==='lt'&&e.ln)lnFit(e);if(k in FD||k==='tn')e.fp='';if(e.lg&&(k==='x'||k==='y'||k==='w'||k==='h')){delete e.lg;delete e.li}}
  fitT(e);paint(NODES.get(e.id),e);place();sync()});
-$('pn').addEventListener('change',ev=>{const k=ev.target.dataset.k;if(k&&!/^_p(sz|op|sm|gl|c)$/.test(k)&&!(/^_(gap|mar|cor)$/.test(k)&&!lgOf(sel&&ge(sel))))commit()});
+$('pn').addEventListener('change',ev=>{if(ev.target.dataset.gc!=null){commit();return}const k=ev.target.dataset.k;if(k&&!/^_p(sz|op|sm|gl|c)$/.test(k)&&!(/^_(gap|mar|cor)$/.test(k)&&!lgOf(sel&&ge(sel))))commit()});
 bindTrim($('pn'),{listen,getRange:()=>{const e=sel&&ge(sel),m=e?.k&&IMG.get(e.k);return m?.type==='video'?{start:clipStart(e,m),end:clipEnd(e,m),duration:m.duration}:null},
  onInput:(key,value)=>{const input=$('pn').querySelector(`.video-trim [data-k="${key}"]`);if(input){input.value=value;input.dispatchEvent(new Event('input',{bubbles:true}))}},
  onCommit:commit});
@@ -921,7 +943,7 @@ $('gr').addEventListener('keydown',ev=>{if(ev.target!==$('gr')||!/^(Enter| |Arro
 $('dock').addEventListener('click',ev=>{ev.stopPropagation();dw.f=dw.f?0:1;if(dw.f){dw.x=undefined;dw.y=undefined}dwApply();dwSave();refit()});
 let dwRT=0;new ResizeObserver(()=>{if(!isDesk()||!dw.f||gd)return;clearTimeout(dwRT);dwRT=setTimeout(()=>{const sh=$('sh');if(!$('ed').classList.contains('sh-float'))return;dw.w=sh.offsetWidth;dw.h=sh.offsetHeight;dwSave()},200)}).observe($('sh'));
 listen(window,'resize',()=>dwApply());dwApply();
-let cvRT=0;new ResizeObserver(()=>{if(!doc||!$('ed').classList.contains('on'))return;cancelAnimationFrame(cvRT);cvRT=requestAnimationFrame(()=>{if(!lastFit||Math.abs(z-lastFit)>=.004)return;const f=fitZ();if(Math.abs(f-z)<.002)return;z=lastFit=f;render();goSlide(cur,1);if(sel)reveal()})}).observe($('cv'));
+let cvRT=0;new ResizeObserver(()=>{if(!doc||!$('ed').classList.contains('on'))return;cancelAnimationFrame(cvRT);cvRT=requestAnimationFrame(()=>{drawRulers();if(!lastFit||Math.abs(z-lastFit)>=.004)return;const f=fitZ();if(Math.abs(f-z)<.002)return;z=lastFit=f;render();goSlide(cur,1);if(sel)reveal()})}).observe($('cv'));
 $('pn').addEventListener('toggle',ev=>{if(ev.target.dataset.n)OD[ev.target.dataset.n]=ev.target.open},true);
 $('cv').addEventListener('dragover',ev=>ev.preventDefault());
 $('cv').addEventListener('drop',ev=>{ev.preventDefault();const f=[...ev.dataTransfer.files].filter(x=>x.type.startsWith('image/')||x.type.startsWith('video/'));if(!f.length)return;const n=document.elementFromPoint(ev.clientX,ev.clientY)?.closest('.e'),q=n&&ge(n.dataset.id);fillT=q&&q.type==='img'?q.id:null;const dt=new DataTransfer();f.forEach(x=>dt.items.add(x));$('fl').files=dt.files;$('fl').dispatchEvent(new Event('change'))});
@@ -938,7 +960,7 @@ function setFs(on){$('ed').classList.toggle('fs-on',on);$('pg').setAttribute('ar
 $('pg').onclick=ev=>{ev.stopPropagation();setFs(!$('ed').classList.contains('fs-on'))};
 const zoomC=f=>{const r=$('cv').getBoundingClientRect();zoomAt(r.left+r.width/2,r.top+r.height/2,f)};$('zi').onclick=()=>zoomC(1.25);$('zo').onclick=()=>zoomC(.8);
 $('zf').onclick=()=>{if(!isDesk()){z=lastFit=fitZ();render();goSlide(cur,1);return}const a=fitZ(),b=fitZ(1),nr=Math.abs(z-a)<.004;z=nr&&doc.n>1?b:(nr||Math.abs(z-b)<.004)?1:a;render();goSlide(cur,1);lastFit=Math.abs(z-a)<.004?z:0};
- $('cv').addEventListener('scroll',()=>{if(!doc)return;stickRulers();syncVideoPlayback();const v=$('cv'),c=visibleSlide();if(c!==cur&&!sel){cur=c;btns();if(mode==='slide'||mode==='lay')panel()}});
+ $('cv').addEventListener('scroll',()=>{if(!doc)return;drawRulers();syncVideoPlayback();const v=$('cv'),c=visibleSlide();if(c!==cur&&!sel){cur=c;btns();if(mode==='slide'||mode==='lay')panel()}});
 $('bk').onclick=async()=>{if(drawMode)inkStop(false);if(!DBok&&hi>0&&!leave){leave=1;toast('Autosave isn’t available here. Tap again to discard edits.');setTimeout(()=>leave=0,3000);return}
  if(hi>0)await saveProj();if(fromHome){onExit();return}$('ed').classList.remove('on');document.body.style.overflow='';leave=0;syncVideoPlayback();recents()};
 $('blank').onclick=()=>openNb();
@@ -1203,14 +1225,19 @@ listen(window,'keydown',e=>{if(e.key==='Escape'&&$('pv').classList.contains('on'
 
 /* ===== tooltips: hover, keyboard focus and touch long-press ===== */
 /* ---- select popover: native lists on macOS open centred over the field (even above the window), so desktop gets an anchored menu ---- */
-(()=>{const fine=matchMedia('(pointer:fine)');let menu=null,src=null,hi=-1;
- const close=(focus=true)=>{if(!menu)return;menu.remove();menu=null;src.classList.remove('open');src.setAttribute('aria-expanded','false');if(focus)src.focus({preventScroll:true});src=null;removeEventListener('scroll',onScroll,true);removeEventListener('resize',onScroll)},
+(()=>{const fine=matchMedia('(pointer:fine)');let menu=null,src=null,hi=-1,liveStart=-1;
+ // `data-live` selects (currently just the typeface picker) apply each highlighted option to
+ // the canvas immediately — arrowing or hovering previews fonts in place instead of requiring
+ // a pick-then-see round trip. Only one 'change' (the undo-history-committing event) fires per
+ // open/close, whichever way the menu closes, so arrow-browsing five fonts doesn't spam undo.
+ const close=(focus=true)=>{if(!menu)return;if(src.dataset.live&&liveStart>=0&&src.selectedIndex!==liveStart)src.dispatchEvent(new Event('change',{bubbles:true}));menu.remove();menu=null;src.classList.remove('open');src.setAttribute('aria-expanded','false');if(focus)src.focus({preventScroll:true});src=null;liveStart=-1;removeEventListener('scroll',onScroll,true);removeEventListener('resize',onScroll)},
   onScroll=ev=>{if(menu&&!(ev.target instanceof Node&&menu.contains(ev.target)))close(false)},
   items=()=>[...menu.children],
-  light=i=>{const L=items();if(!L.length)return;i=Math.max(0,Math.min(L.length-1,i));while(L[i]?.getAttribute('aria-disabled')==='true'&&i<L.length-1)i++;L.forEach((li,j)=>li.classList.toggle('hi',j===i));hi=i;L[i].scrollIntoView({block:'nearest'})},
+  light=i=>{const L=items();if(!L.length)return;i=Math.max(0,Math.min(L.length-1,i));while(L[i]?.getAttribute('aria-disabled')==='true'&&i<L.length-1)i++;L.forEach((li,j)=>li.classList.toggle('hi',j===i));hi=i;L[i].scrollIntoView({block:'nearest'});
+   if(src?.dataset.live&&src.selectedIndex!==i){src.selectedIndex=i;src.dispatchEvent(new Event('input',{bubbles:true}))}},
   pick=i=>{const o=src.options[i],el=src;close();if(!o||o.disabled||el.selectedIndex===i)return;el.selectedIndex=i;el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}))},
-  open=sel=>{if(menu)close(false);src=sel;hi=sel.selectedIndex;menu=document.createElement('ul');menu.className='selm';menu.setAttribute('role','listbox');
-   [...sel.options].forEach((o,i)=>{const li=document.createElement('li');li.setAttribute('role','option');li.textContent=o.textContent;li.setAttribute('aria-selected',i===sel.selectedIndex);if(o.disabled)li.setAttribute('aria-disabled','true');menu.append(li)});
+  open=sel=>{if(menu)close(false);src=sel;hi=sel.selectedIndex;liveStart=sel.dataset.live?hi:-1;menu=document.createElement('ul');menu.className='selm';menu.setAttribute('role','listbox');
+   [...sel.options].forEach((o,i)=>{const li=document.createElement('li');li.setAttribute('role','option');li.textContent=o.textContent;li.setAttribute('aria-selected',i===sel.selectedIndex);if(o.disabled)li.setAttribute('aria-disabled','true');if(o.style.fontFamily)li.style.fontFamily=o.style.fontFamily;menu.append(li)});
    document.body.append(menu);sel.classList.add('open');sel.setAttribute('aria-expanded','true');
    const r=sel.getBoundingClientRect(),vh=innerHeight,vw=innerWidth,gap=6,below=vh-r.bottom-gap-8,above=r.top-gap-8,up=below<Math.min(menu.scrollHeight,240)&&above>below;
    menu.classList.toggle('up',up);menu.style.minWidth=Math.max(160,r.width)+'px';menu.style.maxHeight=Math.max(120,Math.min(360,up?above:below))+'px';
@@ -1255,6 +1282,27 @@ $('nbs').addEventListener('click',e=>{if(e.target.id==='nbs'||e.target.closest('
  const r=e.target.closest('[data-nr]');if(r){nbAr=r.dataset.nr;document.querySelectorAll('#nbr [data-nr]').forEach(b=>b.setAttribute('aria-pressed',b===r));nbGrid();return}
  const l=e.target.closest('[data-nl]');if(l){$('nbs').classList.remove('on');startEd(toDoc(null,nbAr),null,'Untitled carousel');if(l.dataset.nl){sel=null;act('lay',l.dataset.nl)}}});
 
+/* "Insert a template" picker: a full card grid with scrollable multi-slide previews (reusing
+   the legacy home's slides()/layer() renderers), instead of the old text-only line-item list. */
+let tplPickQ='',tplPickCat='All';
+function tplPickCardHTML(t){const n=t.m||t.S.length;
+ return `<article class="card"><div class="strip${t.m?' seam':''}" style="--ar:${t.ar};--b:${t.ar==='9/16'?'34%':'46%'}" tabindex="0" aria-label="${esc(t.name)}, ${n} slide${n>1?'s':''} — swipe to preview">${slides(t)}</div><div class="meta"><div><h3>${esc(t.name)}</h3><p>${t.cat} · ${t.p?t.p+(t.p>1?' photos':' photo'):'Text only'} · ${n} slide${n>1?'s':''}</p></div><div class="mb"><button type="button" class="use" data-v="${t.id}"${tplBusy?' disabled':''}>Insert</button></div></div></article>`}
+function tplPickGrid(){const ar=AR_OF[doc.H],L0=TPL_ALL.filter(t=>t.ar===ar),q=tplPickQ.trim().toLowerCase(),numQ=/^\d+$/.test(q)?+q:null,
+  L=L0.filter(t=>{if(tplPickCat!=='All'&&t.cat!==tplPickCat)return false;if(!q)return true;const n=t.m||t.S.length;if(numQ!=null&&(n===numQ||t.p===numQ))return true;return (t.name+' '+t.cat+' '+(t.tags||'')+' '+t.id).toLowerCase().includes(q)});
+ $('tpCount').textContent=`${L.length} template${L.length===1?'':'s'}`;
+ $('tpGrid').innerHTML=L.length?L.map(tplPickCardHTML).join(''):`<p class="empty">No ${ARL[ar]||'matching'} templates match.</p>`}
+function openTplPicker(){if(!doc)return;const ar=AR_OF[doc.H],L0=TPL_ALL.filter(t=>t.ar===ar),cats=['All',...new Set(L0.map(t=>t.cat))];
+ tplPickQ='';tplPickCat='All';
+ $('tpb').innerHTML=`<div class="tph"><div><h2>Insert a template</h2><p>Inserts after slide ${cur+1} · <span id="tpCount"></span></p></div><button type="button" class="ic" id="tpx" aria-label="Close" data-tip="Close">${ic('x')}</button></div>
+  <div class="search"><i aria-hidden="true">${ic('search')}</i><input type="search" id="tpq" placeholder="Search by name, category or ID" aria-label="Search templates"></div>
+  <div class="chips" id="tpChips">${cats.map(c=>`<button type="button" class="chip" data-c="${esc(c)}" aria-pressed="${c==='All'}">${esc(c)}</button>`).join('')}</div>
+  <div class="grid" id="tpGrid"></div>`;
+ tplPickGrid();$('tps').classList.add('on');setTimeout(()=>$('tpq').focus({preventScroll:true}),60)}
+$('tps').addEventListener('click',e=>{if(e.target.id==='tps'||e.target.closest('#tpx'))return $('tps').classList.remove('on');
+ const chip=e.target.closest('#tpChips [data-c]');if(chip){tplPickCat=chip.dataset.c;document.querySelectorAll('#tpChips [data-c]').forEach(b=>b.setAttribute('aria-pressed',b===chip));tplPickGrid();return}
+ const use=e.target.closest('.use[data-v]');if(use&&!tplBusy){$('tps').classList.remove('on');importTemplate(use.dataset.v)}});
+$('tpb').addEventListener('input',e=>{if(e.target.id==='tpq'){tplPickQ=e.target.value;tplPickGrid()}});
+
 /* ===== desktop comfort: filmstrip, hover outline, space/middle-drag pan, shortcuts ===== */
 let fsT=0,fsDrag=null,fsIgnoreClickUntil=0;function fsSoon(){clearTimeout(fsT);fsT=setTimeout(fsRender,350)}
 function fsRender(){const f=$('fs');if(!doc||!$('ed').classList.contains('on'))return;f.textContent='';
@@ -1295,7 +1343,7 @@ $('cv').addEventListener('pointermove',e=>{if(!pan)return;$('cv').scrollLeft=pan
 ['pointerup','pointercancel'].forEach(k=>$('cv').addEventListener(k,()=>{pan=null}));
 listen(window,'resize',()=>{if(doc&&$('ed').classList.contains('on')){if(lastFit&&Math.abs(z-lastFit)<.004){z=lastFit=fitZ();render()}fsSoon()}});
 listen(window,'keyup',e=>{if(e.code==='Space'){spaceDown=false;$('cv').classList.remove('hand')}});
-listen(window,'keydown',e=>{if(e.key==='Escape'){['ts','nbs','xs'].forEach(i=>$(i).classList.remove('on'));return}
+listen(window,'keydown',e=>{if(e.key==='Escape'){['ts','nbs','xs','tps'].forEach(i=>$(i).classList.remove('on'));return}
  if(!$('ed').classList.contains('on')||$('pv').classList.contains('on')||e.target.isContentEditable||/INPUT|TEXTAREA|SELECT/.test(e.target.tagName))return;
  const m=e.metaKey||e.ctrlKey,el=sel&&ge(sel),free=document.activeElement===document.body||$('cv').contains(document.activeElement);
  if(e.code==='Space'&&free){spaceDown=true;$('cv').classList.add('hand');e.preventDefault();return}
