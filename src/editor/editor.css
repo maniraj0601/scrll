@@ -62,7 +62,10 @@ input[type=search]{width:100%;padding:9px 12px 9px 36px;border-radius:12px;borde
 .ib.sm{background:color-mix(in srgb,var(--acc) 14%,transparent);color:var(--acc)!important;padding:7px 13px;font-size:14px}
 .ib.pri{background:var(--acc);color:var(--on)!important}
 #cw{position:relative;flex:1;min-height:0}
-#cv{position:absolute;inset:0;overflow:auto;background:color-mix(in srgb,var(--ink) 7%,var(--bg))}
+/* A flat near-black fill (dark mode's --bg is pure #000) swallowed dark photos into the
+   backdrop with no edge to judge them against — a soft dotted "playground" mat reads as canvas
+   space rather than a void, and gives dark content a visible boundary regardless of theme. */
+#cv{position:absolute;inset:0;overflow:auto;background-color:color-mix(in srgb,var(--ink) 4%,var(--bg));background-image:radial-gradient(circle,color-mix(in srgb,var(--ink) 16%,transparent) 1.4px,transparent 1.4px);background-size:24px 24px}
 #zm{margin:16px auto;position:relative;box-shadow:0 12px 40px rgba(0,0,0,.18)}
 #stage{position:absolute;left:0;top:0;transform-origin:0 0}
 .bg,.e,#sel,.gl,#gd,#bd,#rp{position:absolute}
