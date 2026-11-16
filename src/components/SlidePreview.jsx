@@ -13,6 +13,9 @@ export const FONT_FAMILY = {
   bodo: "'Bodoni Moda', Georgia, serif",
   dance: "'Dancing Script', cursive",
   roboto: "'Roboto Mono', monospace",
+  fraun: 'Fraunces, Georgia, serif',
+  corm: "'Cormorant Garamond', Georgia, serif",
+  abril: "'Abril Fatface', Georgia, serif",
 }
 
 const STICKER = new Map(STICKERS.items.map((s) => [s.id, s]))

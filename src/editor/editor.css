@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Bebas+Neue&family=Bodoni+Moda:wght@400;700&family=Caveat:wght@600;700&family=Dancing+Script:wght@500;700&family=DM+Sans:wght@400;600;800&family=Inter:wght@400;600;800&family=Lora:wght@400;700&family=Manrope:wght@400;600;800&family=Montserrat:wght@400;700;900&family=Pacifico&family=Permanent+Marker&family=Playfair+Display:wght@700;900&family=Poppins:wght@400;600;800&family=Quicksand:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Archivo+Black&family=Bebas+Neue&family=Bodoni+Moda:wght@400;700&family=Caveat:wght@600;700&family=Cormorant+Garamond:wght@500;600;700&family=Dancing+Script:wght@500;700&family=DM+Sans:wght@400;600;800&family=Fraunces:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;600;800&family=Lora:wght@400;700&family=Manrope:wght@400;600;800&family=Montserrat:wght@400;700;900&family=Pacifico&family=Permanent+Marker&family=Playfair+Display:wght@700;900&family=Poppins:wght@400;600;800&family=Quicksand:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap');
 :root{--grp:#fff;--seg:#fff;--bg:#f2f2f7;--card:#fff;--ink:#000;--mute:#8e8e93;--line:rgba(60,60,67,.16);--fill:rgba(120,120,128,.12);--acc:#007aff;--on:#fff;--glass:rgba(249,249,251,.76);
 --sf:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter","Segoe UI",system-ui,sans-serif;--serif:'Playfair Display',Georgia,serif;--sans:'DM Sans',system-ui,sans-serif;--hand:'Caveat','Segoe Script',cursive;--ease:cubic-bezier(.32,.72,0,1);
 box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -508,6 +508,14 @@ select.open{outline:2px solid var(--acc);outline-offset:1px}
  #pg{transition:opacity .2s,transform .15s var(--ease)}
  #sh{animation:shUp .28s var(--ease)}
 }
+/* iPads (and other real tablets) hit the same <900px check as phones and lost their rulers and
+   zoom +/- controls, even though there's plenty of room for them — restore those two on tablet
+   widths while keeping the touch-friendly bottom bar / overlay panel pattern from above. */
+@media(min-width:700px) and (max-width:899px){
+ #rulerH,#rulerV{display:block}#zw{--pad:36px}
+ .zb{top:auto;right:12px;bottom:12px;padding:4px;opacity:1;pointer-events:auto;transform:none}
+ .zb #zo,.zb #zi{display:grid}.zb #zf{min-width:62px;padding:6px 12px;font-size:inherit}
+}
 @keyframes shUp{from{transform:translateY(24px);opacity:.4}}
 @media(max-width:600px){#qa{display:none!important}#dp{gap:0;padding:3px}#dp button{width:32px;height:34px}#dp button svg{width:18px;height:18px}#dp .dpd{padding:0 9px}#dp .dpc{margin:0 4px}}
 /* sticky panel headers */
@@ -604,6 +612,9 @@ svg.i{fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;strok
 #pn .lr{display:flex;align-items:center;gap:10px;margin:0;padding:8px 10px;border-radius:8px;background:none;font:500 13px var(--sf);color:var(--ink)}
 #pn .lr svg{width:17px;height:17px;color:var(--mute);flex:none}#pn .lr span{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 #pn .lr:hover{background:var(--fill)}#pn .lr.on{background:color-mix(in srgb,var(--acc) 15%,transparent)}#pn .lr.on svg{color:var(--acc)}
+.lrth{width:28px;height:28px;flex:none;border-radius:7px;box-shadow:0 0 0 1px var(--line)}
+img.lrth{object-fit:cover;background:var(--grp)}
+i.lrth.lric{display:grid;place-items:center;background:var(--fill)}
 #pn .lay{margin-top:10px}
 @media(max-width:899px){.ih{padding-top:2px}.tg{grid-template-columns:repeat(4,minmax(0,1fr))}.tt{padding:9px 2px 7px}}
 

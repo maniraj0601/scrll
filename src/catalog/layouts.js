@@ -5,6 +5,14 @@ import { XP } from './photos.js'
 const X = (p, o = {}) => ({ photo: XP[p], ...o })
 const GX = G.stone
 const cap = (y, t, c = '#fff', o = {}) => T(0, y, 100, 3, t, 2.2, { a: 'center', c, ls: 0.32, wt: 500, ...o })
+// A square cell split by one diagonal into two triangular photo halves — 'a' cuts top-left to
+// bottom-right, 'b' cuts top-right to bottom-left. Two overlapping I() layers, clipped, not a
+// single flattened graphic.
+const DIAG = { a: ['0% 0%,100% 0%,100% 100%', '0% 0%,0% 100%,100% 100%'], b: ['0% 0%,100% 0%,0% 100%', '100% 0%,100% 100%,0% 100%'] }
+const triCell = (x, y, s, pA, pB, dir) => {
+  const [cp1, cp2] = DIAG[dir]
+  return [I(x, y, s, s, G.sea, X(pA, { cp: cp1 })), I(x, y, s, s, G.sea, X(pB, { cp: cp2 }))]
+}
 
 export const LAYOUTS = [
 {id:'x-window',name:'Sunset window',cat:'Photo in photo',ar:'4/5',tags:'window inset sea golden hour swap',S:[
@@ -165,5 +173,16 @@ export const LAYOUTS = [
   I(47,15,46,37,G.sun,X('ginger',{r:6,bw:1.6,bc:'#ffffff',rd:'2%'})),
   I(11,51,46,37,G.sun,X('map',{r:4,bw:1.6,bc:'#ffffff',rd:'2%'})),
   I(45,57,46,37,G.rose,X('blueface',{r:-6,bw:1.6,bc:'#ffffff',rd:'2%'})),
-  T(0,93,100,4,'the whole roll',2.4,{a:'center',c:'#8a7f70',wt:500,f:'h'})]}]}
+  T(0,93,100,4,'the whole roll',2.4,{a:'center',c:'#8a7f70',wt:500,f:'h'})]}]},
+{id:'x-diamond',name:'Diamond mosaic',cat:'Photo dump',ar:'1/1',tags:'diagonal triangle grid nine mosaic pinwheel travel',S:[
+ {bg:'#0a1a2e',L:[
+  ...triCell(0,0,33.6,'sunpier','wave','a'),
+  ...triCell(33.3,0,33.6,'aerialsea','island','b'),
+  ...triCell(66.6,0,33.6,'dock','surf','a'),
+  ...triCell(0,33.3,33.6,'pinksea','dive','b'),
+  I(33.3,33.3,33.6,33.6,G.sea,X('cinque')),
+  ...triCell(66.6,33.3,33.6,'bridge','map','b'),
+  ...triCell(0,66.6,33.6,'venice','paris','a'),
+  ...triCell(33.3,66.6,33.6,'canopy','beach','b'),
+  ...triCell(66.6,66.6,33.6,'boat','skyline','a')]}]}
 ]
