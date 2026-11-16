@@ -139,10 +139,26 @@ async function ensureAacEncoder(canEncodeAudio) {
   return aacFallbackReady;
 }
 
-async function toMp4(blob, { signal, onFinalize = () => {} }) {
+// H.264 has hard, level-based limits on how many macroblocks it can encode per frame (e.g. level
+// 5.1 tops out around 3840x2160) and devices frequently support less than the spec's ceiling. A
+// "Maximum" export at something like 3072x3840 can exceed every level a given browser/GPU
+// implements, which made the H.264 re-encode fail outright even though the WebM recording itself
+// succeeded. Step the resolution down until the device reports it can actually encode it, instead
+// of failing — downscaling only ever kicks in on devices that truly can't do the requested size.
+const VIDEO_SCALE_LADDER = [1, 0.75, 0.5, 0.375, 0.25, 0.1875, 0.125];
+async function resolveVideoSize(canEncodeVideo, width, height) {
+  for (const scale of VIDEO_SCALE_LADDER) {
+    const w = Math.max(2, Math.round(width * scale / 2) * 2);
+    const h = Math.max(2, Math.round(height * scale / 2) * 2);
+    if (await canEncodeVideo('avc', { width: w, height: h })) return { width: w, height: h };
+  }
+  return null;
+}
+
+async function toMp4(blob, { signal, onFinalize = () => {}, onResize = () => {} }) {
   signal.throwIfAborted();
   onFinalize();
-  const { Input, BlobSource, WEBM, Output, Mp4OutputFormat, BufferTarget, Conversion, canEncodeAudio } = await import('mediabunny');
+  const { Input, BlobSource, WEBM, Output, Mp4OutputFormat, BufferTarget, Conversion, canEncodeAudio, canEncodeVideo } = await import('mediabunny');
   signal.throwIfAborted();
   await ensureAacEncoder(canEncodeAudio);
   signal.throwIfAborted();
@@ -152,8 +168,20 @@ async function toMp4(blob, { signal, onFinalize = () => {} }) {
   const abort = () => { void conversion?.cancel().catch(() => {}); };
   signal.addEventListener('abort', abort, { once: true });
   try {
+    const videoTrack = await input.getPrimaryVideoTrack();
+    signal.throwIfAborted();
+    const video = { codec: 'avc' };
+    if (videoTrack) {
+      const size = await resolveVideoSize(canEncodeVideo, videoTrack.displayWidth, videoTrack.displayHeight);
+      signal.throwIfAborted();
+      if (!size) throw new Error('H.264 video encoding is unavailable on this device.');
+      if (size.width !== videoTrack.displayWidth || size.height !== videoTrack.displayHeight) {
+        Object.assign(video, size, { fit: 'fill' });
+        onResize(size.width, size.height);
+      }
+    }
     conversion = await Conversion.init({
-      input, output, video: { codec: 'avc' }, audio: { codec: 'aac' }, showWarnings: false,
+      input, output, video, audio: { codec: 'aac' }, showWarnings: false,
     });
     signal.throwIfAborted();
     // Never "succeed" after silently dropping audio or video unsupported by the device.
