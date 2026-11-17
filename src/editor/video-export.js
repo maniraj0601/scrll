@@ -238,13 +238,28 @@ async function recordAttempt({ layers, media, canvas, render, format, audio, sig
     }
     const duration = clips.length ? Math.max(...clips.map(c => c.duration / c.video.playbackRate)) : 5;
     render(sources);
-    stream = canvas.captureStream(30);
+    // Manual frame mode (0 = no internal timer): captureStream(30) instead samples the canvas on
+    // its own fixed-rate clock, independent of when render() actually repaints it. When a frame
+    // (e.g. compositing a 4K video layer) takes longer than one 30fps tick, that auto-sampling
+    // sends the encoder several copies of the same stale frame followed by a sudden jump to the
+    // next one — this is exactly what judder/"can't see it clearly" looks like, even though the
+    // overall export duration comes out correct. Pushing a frame ourselves right after each real
+    // render() call guarantees every encoded frame is genuinely new content, so if the device can
+    // only keep up with, say, 15fps of real compositing, the output is a smooth 15fps instead of a
+    // stuttery fake 30fps.
+    stream = canvas.captureStream(0);
+    const [videoTrack] = stream.getVideoTracks();
+    videoTrack.requestFrame();
     for (const track of destination.stream.getAudioTracks()) stream.addTrack(track);
-    const bitrate = Math.min(40_000_000, Math.max(8_000_000, canvas.width * canvas.height * 6));
+    // Real-time software encoding of a near-4K canvas can't sustain tens of Mbps without falling
+    // behind (manifesting as the same dropped/delayed-frame judder) — this is only the WebM
+    // intermediate, which mediabunny re-encodes properly for the final MP4, so it doesn't need
+    // delivery-grade bitrate.
+    const bitrate = Math.min(16_000_000, Math.max(4_000_000, canvas.width * canvas.height * 2.2));
     try { recorder = new MediaRecorder(stream, { mimeType: format.mime, videoBitsPerSecond: bitrate, audioBitsPerSecond: 192000 }); }
     catch (error) { throw encodingError(error); }
     await new Promise((resolve, reject) => {
-      let start, settled = false;
+      let start, tick = 0, settled = false;
       const fail = error => { if (settled) return; settled = true; clean(); clearTimeout(timer); reject(error); };
       const abort = () => fail(signal.reason);
       const visibility = () => { if (document.hidden) fail(new Error('Keep this tab visible while exporting video, then try again.')); };
@@ -281,8 +296,13 @@ async function recordAttempt({ layers, media, canvas, render, format, audio, sig
             }
           }
           render(sources);
+          videoTrack.requestFrame();
           onProgress(Math.min(1, elapsed / duration));
-          timer = setTimeout(frame, 1000 / 30);
+          // Target the next tick off the fixed schedule (start + n * step) rather than "now + step",
+          // so a slow render doesn't push every later tick back by the same amount — a frame that
+          // runs long just gets skipped ahead to the next due slot instead of compounding delay.
+          tick++;
+          timer = setTimeout(frame, Math.max(0, start + tick * (1000 / 30) - performance.now()));
         } catch (error) { clean(); fail(error); }
       };
       if (signal.aborted || document.hidden) { clean(); fail(signal.reason || new Error('Keep this tab visible while exporting video.')); return; }
