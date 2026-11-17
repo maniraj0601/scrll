@@ -648,6 +648,7 @@ i.lrth.lric{display:grid;place-items:center;background:var(--fill)}
 #cw.cutting #stage{cursor:crosshair;touch-action:none}
 .e .cutov{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;z-index:4}
 .clip .cpb{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}
+.clip .brd{position:absolute;inset:0;box-sizing:border-box;pointer-events:none;z-index:2}
 .cuthow{margin:6px 0 12px;padding-left:20px;color:var(--mute);font-size:12.5px;line-height:1.5}.cuthow li+li{margin-top:4px}.cuthow b{color:var(--ink);font-weight:600}
 .add-hero[disabled]{opacity:.45;cursor:default}
 #pn .shp small{font-size:10px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
