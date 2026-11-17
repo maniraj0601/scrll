@@ -368,7 +368,12 @@ function place(){const e=sel&&ge(sel),s=$('sel'),rp=$('rp'),items=[...multi].map
  if(emp)Object.assign(rp.style,{left:e.x+e.w/2+'px',top:e.y+e.h/2+'px',transform:'translate(-50%,-50%)'});
  quickActions(e)}
 function btns(){$('un').disabled=$('un2').disabled=hi<1;$('rd').disabled=$('rd2').disabled=hi>=hist.length-1;$('dp').querySelectorAll('button.dph').forEach(b=>b.disabled=b.dataset.a==='hundo'?hi<1:hi>=hist.length-1);$('pg').querySelector('span').textContent=`${cur+1} / ${doc.n}`;$('tt1').textContent=`Slide ${cur+1} of ${doc.n}`;document.querySelectorAll('.fsb[data-go]').forEach((b,i)=>{b.classList.toggle('on',i===cur);b.parentElement.classList.toggle('on',i===cur)});fsTb();document.querySelectorAll('.sn').forEach((b,i)=>b.classList.toggle('on',i===cur))}
-function commit(){hist=hist.slice(0,hi+1);hist.push(JSON.stringify(doc));if(hist.length>80)hist.shift();hi=hist.length-1;btns();saveSoon();fsSoon()}
+// Position/size are kept whole-pixel: dragging, resizing, snapping and layout reflow all compute
+// these with trig/division and can leave fractional remainders, which looked noisy in the Arrange
+// panel's X/Y/W/H fields and in exported layouts. Rounding once here, at the single point every
+// interaction funnels through, is simpler and safer than sprinkling Math.round through every drag
+// branch (several of which share math with rotation, where rounding mid-calculation would drift).
+function commit(){doc.els.forEach(e=>{let changed=false;for(const k of['x','y','w','h']){if(!Number.isFinite(e[k]))continue;const r=Math.round(e[k]);if(r!==e[k]){e[k]=r;changed=true}}if(changed)paint(NODES.get(e.id),e)});hist=hist.slice(0,hi+1);hist.push(JSON.stringify(doc));if(hist.length>80)hist.shift();hi=hist.length-1;btns();saveSoon();fsSoon();sync()}
 function undo(d){const j=hi+d;if(j<0||j>=hist.length)return;hi=j;doc=JSON.parse(hist[hi]);multi=new Set([...multi].filter(id=>ge(id)));if(sel&&!ge(sel))sel=multi.values().next().value||null;cur=Math.min(cur,doc.n-1);cropId=null;render();panel();pvSync();fsRender()}
 const padS=()=>{const c=getComputedStyle($('zw'));return[parseFloat(c.paddingLeft)||0,parseFloat(c.paddingTop)||0]};
 const fitZ=all=>{const v=$('cv'),[px,py]=padS();return Math.max(.03,Math.min((v.clientWidth-2*px)/(doc.W*(all?doc.n:1)),(v.clientHeight-2*py)/doc.H))};
@@ -506,7 +511,7 @@ function panel(){const e=sel&&ge(sel);let h='',key=mode;$('ed').classList.toggle
    SPC=lgOf(e)?SEC('Layout spacing',S('_gap','Gap',0,100,1)+S('_mar','Margin',0,300,1)+S('_cor','Corners',0,200,1),PL('edge','edge','Edge to edge',{v:'',tip:'Remove all gaps, margins and corners'})):'';
   if(tab==='arrange')h+=SEC('Layer',SG(IB('front','front','Bring to front')+IB('fwd','fwd','Bring forward ( ] )')+IB('bwd','bwd','Send backward ( [ )')+IB('bottom','bottom','Send to back')))
    +SEC('Align to slide',SG(ALN('al')))
-   +SEC('Position & size',`<div class="xy">${['x','y','w','h'].map(k=>`<label class="xf"><span>${k.toUpperCase()}</span><input type="number" data-k="${k}" aria-label="${{x:'X position',y:'Y position',w:'Width',h:'Height'}[k]}"></label>`).join('')}</div>${S('r','Rotate',-180,180,1)}`);
+   +SEC('Position & size',`<div class="xy">${['x','y','w','h'].map(k=>`<label class="xf"><span>${k.toUpperCase()}</span><input type="number" step="1" data-k="${k}" aria-label="${{x:'X position',y:'Y position',w:'Width',h:'Height'}[k]}"></label>`).join('')}</div>${S('r','Rotate',-180,180,1)}`);
   else if(tab==='stk'){const sd=SMAP.get(e.stk);h+=SEC('Sticker',TG(TT('flipx','flx','Flip H',{on:!!e.fx,tip:'Flip horizontally'})+TT('flipy','fly','Flip V',{on:!!e.fy,tip:'Flip vertically'})+TT('front','front','Front',{tip:'Bring to front'})+TT('bottom','bottom','Back',{tip:'Send to back'}))+OP)+(sd?.tint?SEC('Colour',`<div class="stcol">${STCOL.map(c=>`<button type="button" data-a="stkre" data-v="${c}" style="background:${c}" aria-label="Colour ${c}" aria-pressed="${(e.col||sd.col)===c}"></button>`).join('')}</div>`):'')+SEC('Blend',`<label class="pr"><span>Mode</span><select data-k="blend">${[['source-over','Normal'],['multiply','Multiply'],['screen','Screen'],['overlay','Overlay'],['soft-light','Soft light'],['difference','Difference']].map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select></label>`)}
   else if(tab==='frame')h+=`<button type="button" class="add-hero" data-a="pick">${ic('photo')}<span><b>Add photo or video</b><small>Or drop a file onto the frame</small></span></button>`+SEC('Frame',FRT+FRS+OP)+CUTSEC(e)+SPC;
   else if(tab==='media')h+=(vid&&m.duration>0?SEC('Clip',trimMarkup(m.duration,timeLabel)):'')
@@ -559,7 +564,7 @@ function panel(){const e=sel&&ge(sel);let h='',key=mode;$('ed').classList.toggle
  else{key='slide';h=HD('slides',`Slide ${cur+1}`,`of ${doc.n} · ${esc(doc.name||'Untitled carousel')}`,'')
   +SEC('Slide',C('_bg','Background'))
   +SEC('Project',`<label class="pr"><span>Name</span><input type="text" data-k="_nm" maxlength="60" placeholder="Untitled carousel"></label><label class="pr"><span>Preview as</span><select data-k="previewTarget">${PREVIEW_TARGETS.map(([k,label])=>`<option value="${k}"${k===pvKey()?' selected':''}>${label}</option>`).join('')}</select></label>`)
-  +SEC('Add slides',PL('sadd','addsl','Blank slide')+PL('imp','impsl','From another draft',{tip:'Import every slide of another draft into this one'})+PL('tpl','tplsl','From a template',{tip:`Insert a ${ARL[AR_OF[doc.H]]||'matching'} template after this slide`}))
+  +SEC('Add slides',`<div class="pl-stack">${PL('sadd','addsl','Blank slide')}${PL('imp','impsl','From another draft',{tip:'Import every slide of another draft into this one'})}${PL('tpl','tplsl','From a template',{tip:`Insert a ${ARL[AR_OF[doc.H]]||'matching'} template after this slide`})}</div>`)
   +'<p class="hint">Tap anything on the canvas to edit it. Shift-click to select several.</p>'}
  const sc=$('pn').scrollTop,same=panel.k===key;panel.k=key;$('pn').innerHTML=h;$('pn').scrollTop=same?sc:0;
  if(!e&&mode==='slide'&&multi.size<2){$('pn').querySelector('[data-k=_bg]').value=hex(doc.mbg||doc.bg[cur]);$('pn').querySelector('[data-k=_nm]').value=doc.name||''}sync()}
@@ -822,7 +827,7 @@ $('pn').addEventListener('input',ev=>{const i=ev.target,k=i.dataset.k;if(i.id===
  if(k==='fi')Object.assign(e,fxParams(FP[e.fp]||{},nv),{fi:nv});
  else if(k==='speed'){e.speed=videoSpeed({speed:Number(i.value)});const video=NODES.get(e.id)?.querySelector('video');if(video)video.playbackRate=e.speed}
  else if(k==='vs'||k==='ve'){const m=e.type==='img'&&e.k&&IMG.get(e.k);if(m?.type==='video'&&m.duration>0){e[k]=trimValue(nv,k,clipStart(e,m),clipEnd(e,m),m.duration);sync();const video=NODES.get(e.id)?.querySelector('video');if(video){video.currentTime=clipStart(e,m);if(video.paused)syncVideoPlayback()}}}
- else{e[k]=nv;if(k==='lt'&&e.ln)lnFit(e);if(k in FD||k==='tn')e.fp='';if(e.lg&&(k==='x'||k==='y'||k==='w'||k==='h')){delete e.lg;delete e.li}}
+ else{e[k]=k==='x'||k==='y'||k==='w'||k==='h'?Math.round(nv):nv;if(k==='lt'&&e.ln)lnFit(e);if(k in FD||k==='tn')e.fp='';if(e.lg&&(k==='x'||k==='y'||k==='w'||k==='h')){delete e.lg;delete e.li}}
  fitT(e);paint(NODES.get(e.id),e);place();sync()});
 $('pn').addEventListener('change',ev=>{if(ev.target.dataset.gc!=null){commit();return}const k=ev.target.dataset.k;if(k&&!/^_p(sz|op|sm|gl|c)$/.test(k)&&!(/^_(gap|mar|cor)$/.test(k)&&!lgOf(sel&&ge(sel))))commit()});
 bindTrim($('pn'),{listen,getRange:()=>{const e=sel&&ge(sel),m=e?.k&&IMG.get(e.k);return m?.type==='video'?{start:clipStart(e,m),end:clipEnd(e,m),duration:m.duration}:null},
@@ -1097,6 +1102,11 @@ function syncExportSelection(){const count=xsel.size,all=count===doc.n,f=XFMT.fi
  $('xqq').disabled=xbusy;
  document.querySelectorAll('#xfmts [data-f],#xsizes [data-z]').forEach(b=>b.disabled=xbusy)}
 async function exportSelection(share=false){if(xbusy||!xsel.size)return;xbusy=true;xabort=new AbortController();syncExportSelection();cancelAnimationFrame(pvRaf);document.querySelectorAll('#ed video').forEach(v=>v.pause());const indices=[...xsel].sort((a,b)=>a-b),scale=xScale(),status=$('xstatus'),f=XFMT.find(v=>v[0]===xfmt),pdf=xfmt==='pdf',d=$('xdownload'),lab=t=>{d.innerHTML=`<span>${t}</span>`};let audio;
+ // A prior run's cancel/finish fades its fill back to 0% over .25s (see .xfoot .ib.pri::before's
+ // transition). Starting a new run immediately after collides with that still-playing fade,
+ // producing a visible flicker as the bar jumps and re-animates mid-flight. Snapping to 0% with
+ // the transition briefly disabled guarantees every run starts its fill from a clean, static 0%.
+ d.classList.add('reset');d.style.setProperty('--xp','0%');void d.offsetWidth;d.classList.remove('reset');
  const setStatus=(m,bad)=>{status.textContent=m;status.classList.toggle('bad',!!bad)},tile=i=>document.querySelector(`#xpick [data-slide="${i}"]`);let doneN=0;
  const progress=(i,state,value,label)=>{const b=tile(i),p=b?.querySelector('.xprogress');if(!p)return;b.dataset.st=state;
   const ring=p.querySelector('.xprogress__ring');ring.style.setProperty('--progress',value);ring.setAttribute('aria-valuenow',value);ring.setAttribute('aria-valuetext',`${label}${state==='busy'||state==='done'?` · ${value}%`:''}`);
@@ -1114,7 +1124,7 @@ async function exportSelection(share=false){if(xbusy||!xsel.size)return;xbusy=tr
   else if(share){try{await navigator.share({files,title:doc.name||'Carousel'});setStatus('Shared.'+failNote,!!failures.length);toast(failures.length?`Shared ${files.length} file${files.length>1?'s':''}${failNote}`:'Shared')}catch(err){if(err?.name==='AbortError')setStatus('Share cancelled.');else throw err}}
   else{for(let n=0;n<files.length;n++){xabort.signal.throwIfAborted();downloadBlob(files[n],files[n].name);if(n<files.length-1)await new Promise(r=>setTimeout(r,300))}
    const size=files.reduce((a,b)=>a+b.size,0),msg=pdf?`PDF with ${indices.length} page${indices.length>1?'s':''} saved · ${xMB(size)}`:`${files.length} ${xfmt==='auto'||xfmt==='video'?'file':f[1]}${files.length>1?'s':''} saved · ${xMB(size)}`;setStatus(msg+failNote+(files.length>1?'. If asked, allow multiple downloads.':''),!!failures.length);toast(msg+failNote)}
- }catch(error){const cancelled=error?.name==='AbortError';indices.forEach(i=>{const b=tile(i);if(b?.dataset.st==='busy')progress(i,cancelled?'cancelled':'error',+(b.querySelector('[aria-valuenow]')?.getAttribute('aria-valuenow')||0),cancelled?'Cancelled':'Failed');else if(b?.dataset.st==='wait')progress(i,'cancelled',0,cancelled?'Cancelled':'Not exported')});if(cancelled)setStatus('Export cancelled.');else{const message=error instanceof Error?error.message:'An unexpected export error occurred.';setStatus(`Export failed: ${message}`,true);toast(`Export failed: ${message}`)}}
+ }catch(error){const cancelled=error?.name==='AbortError';indices.forEach(i=>{const b=tile(i);if(b?.dataset.st==='busy')progress(i,cancelled?'cancelled':'error',+(b.querySelector('[aria-valuenow]')?.getAttribute('aria-valuenow')||0),cancelled?'Cancelled · retry below':'Failed');else if(b?.dataset.st==='wait')progress(i,'cancelled',0,cancelled?'Cancelled':'Not exported')});if(cancelled)setStatus('Export cancelled. Click Download file to try again.');else{const message=error instanceof Error?error.message:'An unexpected export error occurred.';setStatus(`Export failed: ${message}`,true);toast(`Export failed: ${message}`)}}
  finally{if(audio)await audio.close().catch(()=>{});xbusy=false;xabort=null;d.style.removeProperty('--xp');if(!disposed){if($('xdownload')){syncExportSelection();if($('pv').classList.contains('on'))pvVideos();else syncVideoPlayback()}}}
 }
 function xHint(){const many=xsel.size!==1,h=$('xhint'),format=videoFormat(),selectedVideo=[...xsel].some(i=>xVideos(i).length);
