@@ -1,0 +1,6 @@
+# Dev-only tooling and docs the build doesn't need — not runtime behavior, just upload/build hygiene.
+.claude
+.github
+docs
+specs
+.ruv-swarm

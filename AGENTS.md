@@ -14,6 +14,8 @@
   before adding or changing editor UI. Full competitive evidence is in [docs/UI_UX_RESEARCH.md](docs/UI_UX_RESEARCH.md).
 - [Agent/model routing](docs/AGENT_MODEL_ROUTING.md): which subagent and model tier a task gets, and
   the fallback ladder when one is rate-limited or exhausted.
+- [Research tooling](docs/RESEARCH_TOOLING.md): the Apify MCP server for competitive research
+  (Instagram etc.) — read its ToS caveat before scraping anything.
 
 Treat source code and `package.json` as authoritative when documentation disagrees. Update the relevant guide when changing an invariant.
 
@@ -67,10 +69,12 @@ genuinely open-ended judgment, to Haiku only for deterministic/checkable work �
 everything to the biggest model "to be safe."
 
 Tooling/MCP: prefer a CLI (`gh`, `curl`) or a disposable script over registering a persistent MCP
-server — a registered server costs context on every session even before its tools are used. There
-is deliberately no committed `.mcp.json`; every browser check done in this repo has used a one-off
-Playwright script via Bash instead. See `docs/AGENT_MODEL_ROUTING.md` for the full reasoning and
-more cost/context practices (output truncation, prompt-cache batching, description-field budgets).
+server — a registered server costs context on every session even before its tools are used. Every
+browser check done in this repo has used a one-off Playwright script via Bash, not a registered
+server. The one exception is `.mcp.json`'s Apify entry (inert until `APIFY_TOKEN` is set) — it earns
+its place because it exposes *dynamic discovery* across thousands of scraper Actors a static script
+can't replicate; see [docs/RESEARCH_TOOLING.md](docs/RESEARCH_TOOLING.md), including its Instagram
+ToS caveat, before using it. See `docs/AGENT_MODEL_ROUTING.md` for the full cost/context reasoning.
 
 ## Verification and delivery
 

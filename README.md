@@ -13,6 +13,7 @@ Carousel Studio is a browser-based carousel and collage designer for desktop and
 | Working on editor features | [Editor-development skill](.github/skills/editor-development/SKILL.md) |
 | UI/UX decisions and competitive research | [Design principles](docs/DESIGN_PRINCIPLES.md), [UI/UX research](docs/UI_UX_RESEARCH.md) |
 | Which agent/model handles what | [Agent/model routing](docs/AGENT_MODEL_ROUTING.md) |
+| Competitive/web research tooling | [Research tooling](docs/RESEARCH_TOOLING.md) |
 
 ## Running locally
 

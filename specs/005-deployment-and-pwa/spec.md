@@ -29,18 +29,27 @@ offline for its app shell so a saved draft stays editable without a connection.
 2. Vercel additionally declares immutable caching for hashed build assets (`assets/*.js` etc.) —
    verifying a deploy means confirming the *hash* the live URL serves matches the local build's
    hash, not just that the URL responds.
-3. The PWA plugin (`vite-plugin-pwa`, `registerType: 'autoUpdate'`) precaches the app shell only.
+3. Both configs send `X-Content-Type-Options: nosniff`, `Referrer-Policy:
+   strict-origin-when-cross-origin`, `X-Frame-Options: DENY`, and a `Permissions-Policy` disabling
+   camera/microphone/geolocation/payment/usb (none of which this app uses) on every response.
+   `Strict-Transport-Security` is sent automatically by Vercel's platform default and is not
+   redeclared. Any future use of a currently-disabled `Permissions-Policy` feature must update that
+   header, not silently work around it.
+4. The PWA plugin (`vite-plugin-pwa`, `registerType: 'autoUpdate'`) precaches the app shell only.
    Drafts and original media (IndexedDB) are never part of the precache/service-worker cache — the
    service worker's job is "the app loads and already-saved drafts keep working offline," not
    "offline creation of new content requiring uncached external catalog assets."
-4. Some catalog photography/sticker assets are external URLs; a fully offline fresh session may not
+5. Some catalog photography/sticker assets are external URLs; a fully offline fresh session may not
    load those specific assets. This is a known, accepted limitation, not a bug to silently work
    around by inlining everything.
-5. No application environment variables or secrets are required to build or run locally. Node
+6. No application environment variables or secrets are required to build or run locally. Node
    version requirement (currently 20.19+/22.12+, see `package.json`'s `engines` and `.nvmrc`) is the
    only environment precondition.
-6. `dist/`, `node_modules/`, and `.vercel/` are never committed; generated files and machine-local
+7. `dist/`, `node_modules/`, and `.vercel/` are never committed; generated files and machine-local
    deployment linkage stay out of version control.
+8. `.vercelignore` excludes dev-only directories (`.claude`, `.github`, `docs`, `specs`) from the
+   Vercel upload — a build-hygiene optimization, not a behavior change; nothing in those directories
+   is imported by `src/`.
 
 ## Constraints from the constitution
 

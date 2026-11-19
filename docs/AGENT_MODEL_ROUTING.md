@@ -82,12 +82,19 @@ loads when that agent actually runs.
 A registered MCP server adds its name and instructions to every session's context even before any
 tool is called (tool *schemas* are deferred until first use, but the server's presence isn't free).
 A CLI tool invoked through Bash — `gh`, `curl`, or a disposable Node script — adds nothing until you
-actually run it. This repo has no committed `.mcp.json` for exactly this reason: every browser
-verification done in this project so far (export output, UI regressions, CSS stacking bugs) used a
-throwaway Playwright script run via `node /tmp/....mjs`, not a persistent MCP server, and that
-pattern is the right default. Add a personal/local MCP server (e.g. `claude mcp add`) if you want
-interactive, stateful browser control across many turns — that's a reasonable tradeoff for *that*
-use case, just not something this repo should force on every session by default.
+actually run it. Every browser verification done in this project so far (export output, UI
+regressions, CSS stacking bugs) used a throwaway Playwright script run via `node /tmp/....mjs`, not
+a persistent MCP server, and that pattern is the right default for anything you already know how to
+automate. Add a personal/local MCP server (e.g. `claude mcp add`) if you want interactive, stateful
+browser control across many turns instead — a reasonable tradeoff for *that* use case, just not
+something this repo should force on every session by default.
+
+**The one exception is Apify** (`.mcp.json`, inert until `APIFY_TOKEN` is set — see
+[docs/RESEARCH_TOOLING.md](RESEARCH_TOOLING.md)). It earns a registered server because its value is
+*dynamic discovery* across a catalog of thousands of scraper Actors neither of us can hardcode in
+advance — a static script only works when you already know exactly what to call, which doesn't hold
+for "find whatever Actor can scrape this specific site." Don't use this exception to justify
+registering a server for something a script could already do.
 
 GitHub and Vercel access come from Claude Code's connected plugins/CLI (`gh`, `vercel`), not from a
 committed MCP config — never hardcode a token into a project file.
