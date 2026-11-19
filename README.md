@@ -9,8 +9,10 @@ Carousel Studio is a browser-based carousel and collage designer for desktop and
 | Running, changing, or validating the app | [Development guide](docs/DEVELOPMENT.md) |
 | Understanding rendering, storage, and exports | [Architecture](docs/ARCHITECTURE.md) |
 | AI coding agents | [Repository instructions](AGENTS.md) |
+| Building a non-trivial feature | [Spec-driven development](specs/README.md) |
 | Working on editor features | [Editor-development skill](.github/skills/editor-development/SKILL.md) |
 | UI/UX decisions and competitive research | [Design principles](docs/DESIGN_PRINCIPLES.md), [UI/UX research](docs/UI_UX_RESEARCH.md) |
+| Which agent/model handles what | [Agent/model routing](docs/AGENT_MODEL_ROUTING.md) |
 
 ## Running locally
 
